@@ -77,7 +77,7 @@ Remove field 28, convert received messaged into a response, and encode it.
     20  PAN Country Code                    : [111]
     39  Response Code                       : [00]
 
-For more info `read the docs <http://iso8583.readthedocs.org>`_.
+For more info `read the docs <http://pyiso8583.readthedocs.org>`_.
 
 Contribute
 ==========
