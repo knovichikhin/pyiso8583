@@ -1,0 +1,32 @@
+Increment version:
+iso8583.__init__.__version__
+
+Update change log:
+CHANGELOG.rst
+
+Doctest:
+python -m doctest .\iso8583\__init__.py
+python -m doctest .\iso8583\encoder.py
+python -m doctest .\iso8583\decoder.py
+
+Lint:
+flake8 iso8583\__init__.py
+flake8 iso8583\encoder.py
+flake8 iso8583\decoder.py
+flake8 iso8583\specs.py
+
+Unit test:
+python -m pytest
+
+Docs:
+python -m readme_renderer .\README.rst
+.\docs\make.bat html
+
+Build:
+python .\setup.py sdist bdist_wheel
+
+Upload to test:
+python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
+Upload to production:
+python -m twine upload dist/*
