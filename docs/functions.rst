@@ -10,6 +10,11 @@ Main Functions
 .. autofunction:: decode
 .. autofunction:: encode
 
+Exceptions
+----------
+.. autoclass:: DecodeError
+.. autoclass:: EncodeError
+
 Helper Functions
 ----------------
 .. autofunction:: add_field
