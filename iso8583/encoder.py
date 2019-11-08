@@ -14,7 +14,7 @@ class EncodeError(ValueError):
         The ISO8583 field where parsing failed
     """
 
-    def __init__(self, msg, doc, field):
+    def __init__(self, msg: str, doc: dict, field: int or str):
         errmsg = f"{msg}: field {field}"
         ValueError.__init__(self, errmsg)
         self.msg = msg
