@@ -1,8 +1,12 @@
 iso8583
 =======
 
-`iso8583` serializes and deserializes ISO8583 data between a ``bytes`` or
+|docs| |coverage|
+
+`iso8583` module serializes and deserializes ISO8583 data between a ``bytes`` or
 ``bytearray`` instance containing ISO8583 data and a Python ``dict``.
+
+`iso8583` supports custom `specifications <https://pyiso8583.readthedocs.io/en/latest/specifications.html>`_.
 
 Install::
 
@@ -35,7 +39,7 @@ Print result using Python's `pprint`.
 Each field is structured as follows::
 
     'field': { # Can be header, type, primary bitmap, or any other field
-        'e': { # Encoded values for length and data as it was received
+        'e': { # Encoded values for length and data as they were received
             'len': b'',
             'data': b''
         },
@@ -105,3 +109,10 @@ Build docs::
 
     ./docs/make html
 
+.. |docs| image:: https://readthedocs.org/projects/pyiso8583/badge/?version=latest
+    :alt: Documentation Status
+    :target: https://pyiso8583.readthedocs.io/en/latest/?badge=latest
+
+.. |coverage| image:: https://codecov.io/gh/manoutoftime/pyiso8583/branch/master/graph/badge.svg
+    :alt: Test coverage
+    :target: https://codecov.io/gh/manoutoftime/pyiso8583

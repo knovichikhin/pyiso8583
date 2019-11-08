@@ -18,6 +18,11 @@ flake8 iso8583\specs.py
 Unit test:
 python -m pytest
 
+Coverage:
+python -m pytest --cov=./
+python -m coverage xml
+codecov -f coverage.xml -t <token>
+
 Docs:
 python -m readme_renderer .\README.rst
 .\docs\make.bat html
