@@ -10,9 +10,9 @@ iso8583 -- ISO8583 Protocol Serializer
    :maxdepth: 2
    :caption: Contents:
 
+   readme
    functions
    specifications
-   readme
    changelog
 
 .. automodule:: iso8583
