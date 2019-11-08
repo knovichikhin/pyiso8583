@@ -12,8 +12,8 @@ Main Functions
 
 Exceptions
 ----------
-.. autoclass:: DecodeError
-.. autoclass:: EncodeError
+.. autoexception:: DecodeError
+.. autoexception:: EncodeError
 
 Helper Functions
 ----------------
