@@ -135,6 +135,40 @@ spec = {
     128: {'data_encoding': 'b',     'len_encoding': 'ascii', 'len_type': 0, 'max_len': 8,   'desc': 'MAC'}
 }
 
+def test_encode_error_class():
+    '''
+    Validate EncodeError class
+    '''
+    spec['h']['data_encoding'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_encoding'] = 'ascii'
+    spec['p']['data_encoding'] = 'ascii'
+    spec[1]['len_type'] = 0
+    spec[1]['max_len'] = 0
+
+    d = {
+        'h': {},
+        't': {}
+    }
+
+    try:
+        iso8583.encode(d, spec=spec)
+    except iso8583.EncodeError as e:
+        assert e.doc == d
+        assert e.msg == "Define d['h']['d']"
+        assert e.field == 'h'
+        assert e.args[0] == "Define d['h']['d']: field h"
+
+def test_input_type():
+    '''
+    Encode accepts only dict.
+    '''
+    s = b''
+    with pytest.raises(
+        TypeError,
+        match="the ISO8583 data must be dict, not bytes"):
+        iso8583.encode(s, spec=spec)
+
 def test_header_no_key():
     '''
     Message header is required and key is not provided
@@ -1144,7 +1178,6 @@ def test_bitmap_remove_secondary():
 
     d['bm'] = set([1, 2])
     s = iso8583.encode(d, spec=spec)
-    print(d)
     assert s == b'header0200\x40\x00\x00\x00\x00\x00\x00\x00101234567890'
     assert d['h']['e']['len'] == b''
     assert d['h']['e']['data'] == b'header'
@@ -1191,7 +1224,6 @@ def test_bitmap_add_secondary():
 
     d['bm'] = set([66])
     s = iso8583.encode(d, spec=spec)
-    print(d)
     assert s == b'header0200\x80\x00\x00\x00\x00\x00\x00\x00\x40\x00\x00\x00\x00\x00\x00\x00101234567890'
     assert d['h']['e']['len'] == b''
     assert d['h']['e']['data'] == b'header'
@@ -1251,6 +1283,192 @@ def test_field_no_key():
         iso8583.EncodeError,
         match="Define d.2..'d'.: field 2"):
         iso8583.encode(d, spec=spec)
+
+def test_primary_bitmap_incorrect_encoding():
+    '''
+    Incorrect encoding specified for primary bitmap
+    '''
+    spec['h']['data_encoding'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_encoding'] = 'ascii'
+    spec['p']['data_encoding'] = 'invalid'
+    spec[1]['len_type'] = 0
+    spec[1]['max_len'] = 0
+
+    d = {
+        'h': {
+             'd': 'header'
+        },
+        't': {
+             'd': '0210'
+        },
+        'bm': set([2]),
+        2: {}
+    }
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Failed to encode .unknown encoding: invalid.: field p"):
+        iso8583.encode(d, spec=spec)
+
+def test_secondary_bitmap_incorrect_encoding():
+    '''
+    Incorrect encoding specified for secondary bitmap
+    '''
+    spec['h']['data_encoding'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_encoding'] = 'ascii'
+    spec['p']['data_encoding'] = 'ascii'
+    spec[1]['len_type'] = 0
+    spec[1]['max_len'] = 16
+    spec[1]['data_encoding'] = 'invalid'
+
+    d = {
+        'h': {
+             'd': 'header'
+        },
+        't': {
+             'd': '0210'
+        },
+        'bm': set([65]),
+        65: {}
+    }
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Failed to encode .unknown encoding: invalid.: field 1"):
+        iso8583.encode(d, spec=spec)
+
+def test_ascii_bitmaps():
+    '''
+    Field is required and not key provided
+    '''
+    spec['h']['data_encoding'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_encoding'] = 'ascii'
+    spec['p']['data_encoding'] = 'ascii'
+    spec[1]['data_encoding'] = 'ascii'
+    spec[105]['len_encoding'] = 'ascii'
+
+    d = {
+        'h': {
+             'd': 'header'
+        },
+        't': {
+             'd': '0210'
+        },
+        'bm': set([105]),
+        105: {
+            'd': ''
+        }
+    }
+
+    s = iso8583.encode(d, spec=spec)
+    assert s == b'header021080000000000000000000000000800000000'
+    assert d['h']['e']['len'] == b''
+    assert d['h']['e']['data'] == b'header'
+    assert d['h']['d'] == 'header'
+    assert d['t']['e']['len'] == b''
+    assert d['t']['e']['data'] == b'0210'
+    assert d['t']['d'] == '0210'
+    assert d['p']['e']['len'] == b''
+    assert d['p']['e']['data'] == b'8000000000000000'
+    assert d['p']['d'] == '8000000000000000'
+    assert d[1]['e']['len'] == b''
+    assert d[1]['e']['data'] == b'0000000000800000'
+    assert d[1]['d'] == '0000000000800000'
+    assert d[105]['e']['len'] == b'000'
+    assert d[105]['e']['data'] == b''
+    assert d[105]['d'] == ''
+    assert d['bm'] == set([1, 105])
+
+def test_ebcidic_bitmaps():
+    '''
+    Field is required and not key provided
+    '''
+    spec['h']['data_encoding'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_encoding'] = 'ascii'
+    spec['p']['data_encoding'] = 'cp500'
+    spec[1]['data_encoding'] = 'cp500'
+    spec[105]['len_encoding'] = 'ascii'
+
+    d = {
+        'h': {
+             'd': 'header'
+        },
+        't': {
+             'd': '0210'
+        },
+        'bm': set([105]),
+        105: {
+            'd': ''
+        }
+    }
+
+    s = iso8583.encode(d, spec=spec)
+    assert s == b'header0210\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0' + \
+                b'\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0' + \
+                b'\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf8\xf0\xf0\xf0\xf0\xf0000'
+    assert d['h']['e']['len'] == b''
+    assert d['h']['e']['data'] == b'header'
+    assert d['h']['d'] == 'header'
+    assert d['t']['e']['len'] == b''
+    assert d['t']['e']['data'] == b'0210'
+    assert d['t']['d'] == '0210'
+    assert d['p']['e']['len'] == b''
+    assert d['p']['e']['data'] == b'\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0'
+    assert d['p']['d'] == '8000000000000000'
+    assert d[1]['e']['len'] == b''
+    assert d[1]['e']['data'] == b'\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf8\xf0\xf0\xf0\xf0\xf0'
+    assert d[1]['d'] == '0000000000800000'
+    assert d[105]['e']['len'] == b'000'
+    assert d[105]['e']['data'] == b''
+    assert d[105]['d'] == ''
+    assert d['bm'] == set([1, 105])
+
+def test_bcd_bitmaps():
+    '''
+    Field is required and not key provided
+    '''
+    spec['h']['data_encoding'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_encoding'] = 'ascii'
+    spec['p']['data_encoding'] = 'b'
+    spec[1]['data_encoding'] = 'b'
+    spec[105]['len_encoding'] = 'ascii'
+
+    d = {
+        'h': {
+             'd': 'header'
+        },
+        't': {
+             'd': '0210'
+        },
+        'bm': set([105]),
+        105: {
+            'd': ''
+        }
+    }
+
+    s = iso8583.encode(d, spec=spec)
+    assert s == b'header0210\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00000'
+    assert d['h']['e']['len'] == b''
+    assert d['h']['e']['data'] == b'header'
+    assert d['h']['d'] == 'header'
+    assert d['t']['e']['len'] == b''
+    assert d['t']['e']['data'] == b'0210'
+    assert d['t']['d'] == '0210'
+    assert d['p']['e']['len'] == b''
+    assert d['p']['e']['data'] == b'\x80\x00\x00\x00\x00\x00\x00\x00'
+    assert d['p']['d'] == '8000000000000000'
+    assert d[1]['e']['len'] == b''
+    assert d[1]['e']['data'] == b'\x00\x00\x00\x00\x00\x80\x00\x00'
+    assert d[1]['d'] == '0000000000800000'
+    assert d[105]['e']['len'] == b'000'
+    assert d[105]['e']['data'] == b''
+    assert d[105]['d'] == ''
+    assert d['bm'] == set([1, 105])
 
 def test_fixed_field_ascii_absent():
     '''

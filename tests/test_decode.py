@@ -135,6 +135,39 @@ spec = {
     128: {'data_encoding': 'b',     'len_encoding': 'ascii', 'len_type': 0, 'max_len': 8,   'desc': 'MAC'}
 }
 
+def test_decode_error_class():
+    '''
+    Validate DecodeError class
+    '''
+    s = b''
+
+    try:
+        iso8583.decode(s, spec=spec)
+    except iso8583.DecodeError as e:
+        assert e.doc == ({
+            'bm': set(),
+            't': {
+                'd': '',
+                'e': {
+                    'data': b'',
+                    'len': b''}
+                }
+        })
+        assert e.msg == "Field data is 0 bytes, expecting 4"
+        assert e.field == 't'
+        assert e.pos == 0
+        assert e.args[0] == "Field data is 0 bytes, expecting 4: field t pos 0"
+
+def test_input_type():
+    '''
+    Decode accepts only bytes or bytesarray.
+    '''
+    s = {}
+    with pytest.raises(
+        TypeError,
+        match="the ISO8583 data must be bytes or bytearray, not dict"):
+        iso8583.decode(s, spec=spec)
+
 def test_header_ascii_absent():
     '''
     ASCII header is not required by spec and not provided
