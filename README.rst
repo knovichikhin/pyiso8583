@@ -1,7 +1,7 @@
 iso8583
 =======
 
-|docs| |coverage|
+|pypi| |docs| |coverage|
 
 `iso8583` module serializes and deserializes ISO8583 data between a ``bytes`` or
 ``bytearray`` instance containing ISO8583 data and a Python ``dict``.
@@ -108,6 +108,10 @@ Lint::
 Build docs::
 
     ./docs/make html
+
+.. |pypi| image:: https://img.shields.io/pypi/v/pyiso8583.svg
+    :alt: PyPI
+    :target:  https://pypi.org/project/pyiso8583/
 
 .. |docs| image:: https://readthedocs.org/projects/pyiso8583/badge/?version=latest
     :alt: Documentation Status
