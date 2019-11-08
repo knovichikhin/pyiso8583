@@ -9,7 +9,7 @@ class EncodeError(ValueError):
     msg : str
         The unformatted error message
     doc : dict
-        Partially decoded Python represination of ISO8583 byte array
+        Partially encoded Python represination of ISO8583 byte array
     field : int or str
         The ISO8583 field where parsing failed
     """
