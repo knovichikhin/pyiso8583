@@ -8,11 +8,13 @@ Doctest:
 python -m doctest .\iso8583\__init__.py
 python -m doctest .\iso8583\encoder.py
 python -m doctest .\iso8583\decoder.py
+python -m doctest .\iso8583\tools.py
 
 Lint:
 flake8 iso8583\__init__.py
 flake8 iso8583\encoder.py
 flake8 iso8583\decoder.py
+flake8 iso8583\tools.py
 flake8 iso8583\specs.py
 
 Unit test:
