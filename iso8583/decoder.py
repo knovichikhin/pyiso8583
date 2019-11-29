@@ -277,11 +277,11 @@ def _decode_bitmaps(s: bytes or bytearray, doc_dec: dict,
         raise DecodeError(f"Failed to decode ({e})",
                           s, doc_dec, doc_enc, idx, 'p') from None
 
-    for i, byte in enumerate(bm):
-        for bit in range(1, 9):
-            if byte >> (8 - bit) & 1:
-                doc_dec['bm'].add(i * 8 + bit)
-                doc_enc['bm'].add(i * 8 + bit)
+    doc_dec['bm'] = set([byte_idx * 8 + bit
+                            for bit in range(1, 9)
+                                for byte_idx, byte in enumerate(bm)
+                                    if byte >> (8 - bit) & 1])
+    doc_enc['bm'] = doc_dec['bm'].copy()
 
     idx += f_len
 
