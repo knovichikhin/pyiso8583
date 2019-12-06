@@ -1,3 +1,4 @@
+import pickle
 import pytest
 import iso8583
 
@@ -135,7 +136,7 @@ spec = {
     '128': {'data_enc': 'b',     'len_enc': 'ascii', 'len_type': 0, 'max_len': 8,   'desc': 'MAC'}
 }
 
-def test_encode_error_class():
+def test_EncodeError_exception():
     '''
     Validate EncodeError class
     '''
@@ -158,6 +159,33 @@ def test_encode_error_class():
         assert e.msg == "Field data is required according to specifications"
         assert e.field == 'h'
         assert e.args[0] == "Field data is required according to specifications: field h"
+
+def test_EncodeError_exception_pickle():
+    '''
+    Validate EncodeError class with pickle
+    '''
+    spec['h']['data_enc'] = 'ascii'
+    spec['h']['max_len'] = 6
+    spec['t']['data_enc'] = 'ascii'
+    spec['p']['data_enc'] = 'ascii'
+    spec['1']['len_type'] = 0
+    spec['1']['max_len'] = 0
+
+    doc_dec = {
+        't': ''
+    }
+
+    try:
+        iso8583.encode(doc_dec, spec=spec)
+    except iso8583.EncodeError as e:
+        p = pickle.dumps(e)
+        e_unpickled = pickle.loads(p)
+
+        assert e.doc_dec == e_unpickled.doc_dec
+        assert e.doc_enc == e_unpickled.doc_enc
+        assert e.msg == e_unpickled.msg
+        assert e.field == e_unpickled.field
+        assert e.args[0] == e_unpickled.args[0]
 
 def test_input_type():
     '''
