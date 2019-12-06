@@ -1,3 +1,4 @@
+import pickle
 import pytest
 import iso8583
 
@@ -135,7 +136,7 @@ spec = {
     '128': {'data_enc': 'b',     'len_enc': 'ascii', 'len_type': 0, 'max_len': 8,   'desc': 'MAC'}
 }
 
-def test_decode_error_class():
+def test_DecodeError_exception():
     '''
     Validate DecodeError class
     '''
@@ -159,6 +160,25 @@ def test_decode_error_class():
         assert e.field == 't'
         assert e.pos == 0
         assert e.args[0] == "Field data is 0 bytes, expecting 4: field t pos 0"
+
+def test_DecodeError_exception_pickle():
+    '''
+    Validate DecodeError class with pickle
+    '''
+    s = b''
+
+    try:
+        iso8583.decode(s, spec=spec)
+    except iso8583.DecodeError as e:
+        p = pickle.dumps(e)
+        e_unpickled = pickle.loads(p)
+
+        assert e.doc_dec == e_unpickled.doc_dec
+        assert e.doc_enc == e_unpickled.doc_enc
+        assert e.msg == e_unpickled.msg
+        assert e.field == e_unpickled.field
+        assert e.pos == e_unpickled.pos
+        assert e.args[0] == e_unpickled.args[0]
 
 def test_input_type():
     '''
