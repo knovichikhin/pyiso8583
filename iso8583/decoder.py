@@ -1,10 +1,10 @@
 from typing import Tuple
 
-__all__ = ['decode', 'DecodeError']
+__all__ = ["decode", "DecodeError"]
 
 
 class DecodeError(ValueError):
-    r'''Subclass of ValueError that describes ISO8583 decoding error.
+    r"""Subclass of ValueError that describes ISO8583 decoding error.
 
     Attributes
     ----------
@@ -20,10 +20,17 @@ class DecodeError(ValueError):
         The start index of ISO8583 bytes instance where parsing failed
     field : int or str
         The ISO8583 field where parsing failed
-    '''
+    """
 
-    def __init__(self, msg: str, s: bytes or bytearray,
-                 doc_dec: dict, doc_enc: dict, pos: int, field: str):
+    def __init__(
+        self,
+        msg: str,
+        s: bytes or bytearray,
+        doc_dec: dict,
+        doc_enc: dict,
+        pos: int,
+        field: str,
+    ):
         errmsg = f"{msg}: field {field} pos {pos}"
         ValueError.__init__(self, errmsg)
         self.msg = msg
@@ -34,12 +41,14 @@ class DecodeError(ValueError):
         self.pos = pos
 
     def __reduce__(self):
-        return self.__class__, (
-            self.msg, self.s, self.doc_dec, self.doc_enc, self.pos, self.field)
+        return (
+            self.__class__,
+            (self.msg, self.s, self.doc_dec, self.doc_enc, self.pos, self.field),
+        )
 
 
 def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
-    r'''Deserialize a bytes or bytearray instance containing
+    r"""Deserialize a bytes or bytearray instance containing
     ISO8583 data to a Python dict.
 
     Parameters
@@ -68,15 +77,17 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
     --------
     >>> import iso8583
     >>> from iso8583.specs import default
-    >>> s = b'0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456111'
+    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456111"
     >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
-    '''
+    """
     if not isinstance(s, (bytes, bytearray)):
-        raise TypeError(f'the ISO8583 data must be bytes or bytearray, '
-                        f'not {s.__class__.__name__}')
+        raise TypeError(
+            f"the ISO8583 data must be bytes or bytearray, "
+            f"not {s.__class__.__name__}"
+        )
 
-    doc_dec = {'bm': set()}
-    doc_enc = {'bm': set()}
+    doc_dec = {"bm": set()}
+    doc_enc = {"bm": set()}
     idx = 0
 
     idx = _decode_header(s, doc_dec, doc_enc, idx, spec)
@@ -86,28 +97,31 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
     # Create the variable in case the bitmap set is empty
     # and there is extra data afterwards.
     # Set field to the last mandatory one: primary bitmap.
-    f_id = 'p'
+    f_id = "p"
 
-    for f_id in [str(i) for i in sorted(doc_dec['bm'])]:
+    for f_id in [str(i) for i in sorted(doc_dec["bm"])]:
         # Secondary bitmap is already decoded in _decode_bitmaps
-        if f_id == '1':
+        if f_id == "1":
             continue
         idx = _decode_field(s, doc_dec, doc_enc, idx, f_id, spec)
 
     if idx != len(s):
-        raise DecodeError("Extra data after last field",
-                          s, doc_dec, doc_enc, idx, f_id) from None
+        raise DecodeError(
+            "Extra data after last field", s, doc_dec, doc_enc, idx, f_id
+        ) from None
 
     return doc_dec, doc_enc
+
 
 #
 # Private interface
 #
 
 
-def _decode_header(s: bytes or bytearray, doc_dec: dict,
-                   doc_enc: dict, idx: int, spec: dict) -> int:
-    r'''Decode ISO8583 header data if present.
+def _decode_header(
+    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+) -> int:
+    r"""Decode ISO8583 header data if present.
 
     Parameters
     ----------
@@ -132,39 +146,43 @@ def _decode_header(s: bytes or bytearray, doc_dec: dict,
     ------
     DecodeError
         An error decoding ISO8583 bytearray.
-    '''
-    f_len = spec['h']['max_len']
+    """
+    f_len = spec["h"]["max_len"]
 
     # Header is not expected according to specifications
     if f_len <= 0:
         return idx
 
-    doc_dec['h'] = ''
-    doc_enc['h'] = {
-        'len': b'',
-        'data': bytes(s[idx:idx + f_len])
-    }
+    doc_dec["h"] = ""
+    doc_enc["h"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
 
-    if len(s[idx:idx + f_len]) != f_len:
+    if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " +
-            f"expecting {f_len}", s, doc_dec, doc_enc, idx, 'h') from None
+            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            "h",
+        ) from None
 
     try:
-        if spec['h']['data_enc'] == 'b':
-            doc_dec['h'] = s[idx:idx + f_len].hex().upper()
+        if spec["h"]["data_enc"] == "b":
+            doc_dec["h"] = s[idx : idx + f_len].hex().upper()
         else:
-            doc_dec['h'] = s[idx:idx + f_len].decode(spec['h']['data_enc'])
+            doc_dec["h"] = s[idx : idx + f_len].decode(spec["h"]["data_enc"])
     except Exception as e:
-        raise DecodeError(f"Failed to decode ({e})",
-                          s, doc_dec, doc_enc, idx, 'h') from None
+        raise DecodeError(
+            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "h"
+        ) from None
 
     return idx + f_len
 
 
-def _decode_type(s: bytes or bytearray, doc_dec: dict,
-                 doc_enc: dict, idx: int, spec: dict) -> int:
-    r'''Decode ISO8583 message type.
+def _decode_type(
+    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+) -> int:
+    r"""Decode ISO8583 message type.
 
     Parameters
     ----------
@@ -189,40 +207,44 @@ def _decode_type(s: bytes or bytearray, doc_dec: dict,
     ------
     DecodeError
         An error decoding ISO8583 bytearray.
-    '''
+    """
 
     # Message type is a set length in ISO8583
-    if spec['t']['data_enc'] == 'b':
+    if spec["t"]["data_enc"] == "b":
         f_len = 2
     else:
         f_len = 4
 
-    doc_dec['t'] = ''
-    doc_enc['t'] = {
-        'len': b'',
-        'data': bytes(s[idx:idx + f_len])
-    }
+    doc_dec["t"] = ""
+    doc_enc["t"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
 
-    if len(s[idx:idx + f_len]) != f_len:
+    if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " +
-            f"expecting {f_len}", s, doc_dec, doc_enc, idx, 't') from None
+            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            "t",
+        ) from None
 
     try:
-        if spec['t']['data_enc'] == 'b':
-            doc_dec['t'] = s[idx:idx + f_len].hex().upper()
+        if spec["t"]["data_enc"] == "b":
+            doc_dec["t"] = s[idx : idx + f_len].hex().upper()
         else:
-            doc_dec['t'] = s[idx:idx + f_len].decode(spec['t']['data_enc'])
+            doc_dec["t"] = s[idx : idx + f_len].decode(spec["t"]["data_enc"])
     except Exception as e:
-        raise DecodeError(f"Failed to decode ({e})",
-                          s, doc_dec, doc_enc, idx, 't') from None
+        raise DecodeError(
+            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "t"
+        ) from None
 
     return idx + f_len
 
 
-def _decode_bitmaps(s: bytes or bytearray, doc_dec: dict,
-                    doc_enc: dict, idx: int, spec: dict) -> int:
-    r'''Decode ISO8583 primary and secondary bitmaps.
+def _decode_bitmaps(
+    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+) -> int:
+    r"""Decode ISO8583 primary and secondary bitmaps.
 
     Parameters
     ----------
@@ -247,89 +269,100 @@ def _decode_bitmaps(s: bytes or bytearray, doc_dec: dict,
     ------
     DecodeError
         An error decoding ISO8583 bytearray.
-    '''
+    """
 
     # Primary bitmap is a set length in ISO8583
-    if spec['p']['data_enc'] == 'b':
+    if spec["p"]["data_enc"] == "b":
         f_len = 8
     else:
         f_len = 16
 
-    doc_dec['p'] = ''
-    doc_enc['p'] = {
-        'len': b'',
-        'data': bytes(s[idx:idx + f_len])
-    }
+    doc_dec["p"] = ""
+    doc_enc["p"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
 
-    if len(s[idx:idx + f_len]) != f_len:
+    if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " +
-            f"expecting {f_len}", s, doc_dec, doc_enc, idx, 'p') from None
+            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            "p",
+        ) from None
 
     try:
-        if spec['p']['data_enc'] == 'b':
-            doc_dec['p'] = s[idx:idx + f_len].hex().upper()
-            bm = s[idx:idx + f_len]
+        if spec["p"]["data_enc"] == "b":
+            doc_dec["p"] = s[idx : idx + f_len].hex().upper()
+            bm = s[idx : idx + f_len]
         else:
-            doc_dec['p'] = s[idx:idx + f_len].decode(spec['p']['data_enc'])
-            bm = bytes.fromhex(doc_dec['p'])
+            doc_dec["p"] = s[idx : idx + f_len].decode(spec["p"]["data_enc"])
+            bm = bytes.fromhex(doc_dec["p"])
     except Exception as e:
-        raise DecodeError(f"Failed to decode ({e})",
-                          s, doc_dec, doc_enc, idx, 'p') from None
+        raise DecodeError(
+            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "p"
+        ) from None
 
-    doc_dec['bm'] = set([byte_idx * 8 + bit
-                            for bit in range(1, 9)
-                                for byte_idx, byte in enumerate(bm)
-                                    if byte >> (8 - bit) & 1])
-    doc_enc['bm'] = doc_dec['bm'].copy()
+    doc_dec["bm"] = set(
+        [
+            byte_idx * 8 + bit
+            for bit in range(1, 9)
+            for byte_idx, byte in enumerate(bm)
+            if byte >> (8 - bit) & 1
+        ]
+    )
+    doc_enc["bm"] = doc_dec["bm"].copy()
 
     idx += f_len
 
     # No need to produce secondary bitmap if it's not required
-    if 1 not in doc_dec['bm']:
+    if 1 not in doc_dec["bm"]:
         return idx
 
     # Decode secondary bitmap
     # Secondary bitmap is a set length in ISO8583
-    if spec['1']['data_enc'] == 'b':
+    if spec["1"]["data_enc"] == "b":
         f_len = 8
     else:
         f_len = 16
 
-    doc_dec['1'] = ''
-    doc_enc['1'] = {
-        'len': b'',
-        'data': bytes(s[idx:idx + f_len])
-    }
+    doc_dec["1"] = ""
+    doc_enc["1"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
 
-    if len(s[idx:idx + f_len]) != f_len:
+    if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " +
-            f"expecting {f_len}", s, doc_dec, doc_enc, idx, '1') from None
+            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            "1",
+        ) from None
 
     try:
-        if spec['1']['data_enc'] == 'b':
-            doc_dec['1'] = s[idx:idx + f_len].hex().upper()
-            bm = s[idx:idx + f_len]
+        if spec["1"]["data_enc"] == "b":
+            doc_dec["1"] = s[idx : idx + f_len].hex().upper()
+            bm = s[idx : idx + f_len]
         else:
-            doc_dec['1'] = s[idx:idx + f_len].decode(spec['1']['data_enc'])
-            bm = bytes.fromhex(doc_dec['1'])
+            doc_dec["1"] = s[idx : idx + f_len].decode(spec["1"]["data_enc"])
+            bm = bytes.fromhex(doc_dec["1"])
     except Exception as e:
-        raise DecodeError(f"Failed to decode ({e})",
-                          s, doc_dec, doc_enc, idx, '1') from None
+        raise DecodeError(
+            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "1"
+        ) from None
 
     for i, byte in enumerate(bm):
         for bit in range(1, 9):
             if byte >> (8 - bit) & 1:
-                doc_dec['bm'].add(64 + i * 8 + bit)
-                doc_enc['bm'].add(64 + i * 8 + bit)
+                doc_dec["bm"].add(64 + i * 8 + bit)
+                doc_enc["bm"].add(64 + i * 8 + bit)
 
     return idx + f_len
 
 
-def _decode_field(s: bytes or bytearray, doc_dec: dict,
-                  doc_enc: dict, idx: int, f_id: int, spec: dict) -> int:
-    r'''Decode ISO8583 individual fields.
+def _decode_field(
+    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, f_id: int, spec: dict
+) -> int:
+    r"""Decode ISO8583 individual fields.
 
     Parameters
     ----------
@@ -356,41 +389,48 @@ def _decode_field(s: bytes or bytearray, doc_dec: dict,
     ------
     DecodeError
         An error decoding ISO8583 bytearray.
-    '''
-    len_type = spec[f_id]['len_type']
+    """
+    len_type = spec[f_id]["len_type"]
 
-    doc_dec[f_id] = ''
-    doc_enc[f_id] = {
-        'len': bytes(s[idx:idx + len_type]),
-        'data': b''
-    }
+    doc_dec[f_id] = ""
+    doc_enc[f_id] = {"len": bytes(s[idx : idx + len_type]), "data": b""}
 
-    if len(s[idx:idx + len_type]) != len_type:
+    if len(s[idx : idx + len_type]) != len_type:
         raise DecodeError(
-            f"Field length is {len(s[idx:idx + len_type])} bytes wide, " +
-            f"expecting {len_type}", s, doc_dec, doc_enc, idx, f_id) from None
+            f"Field length is {len(s[idx:idx + len_type])} bytes wide, "
+            + f"expecting {len_type}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            f_id,
+        ) from None
 
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
     if len_type == 0:
-        f_len = spec[f_id]['max_len']
+        f_len = spec[f_id]["max_len"]
     else:
         try:
-            if spec[f_id]['len_enc'] == 'b':
-                f_len = int(s[idx:idx + len_type].hex(), 10)
+            if spec[f_id]["len_enc"] == "b":
+                f_len = int(s[idx : idx + len_type].hex(), 10)
             else:
-                f_len = int(s[idx:idx + len_type].decode(
-                                                spec[f_id]['len_enc']), 10)
+                f_len = int(s[idx : idx + len_type].decode(spec[f_id]["len_enc"]), 10)
         except Exception as e:
             raise DecodeError(
-                f"Failed to decode length ({e})",
-                s, doc_dec, doc_enc, idx, f_id) from None
+                f"Failed to decode length ({e})", s, doc_dec, doc_enc, idx, f_id
+            ) from None
 
-    if f_len > spec[f_id]['max_len']:
+    if f_len > spec[f_id]["max_len"]:
         raise DecodeError(
-            f"Field data is {f_len} bytes, " +
-            f"larger than maximum {spec[f_id]['max_len']}",
-            s, doc_dec, doc_enc, idx, f_id) from None
+            f"Field data is {f_len} bytes, "
+            + f"larger than maximum {spec[f_id]['max_len']}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            f_id,
+        ) from None
 
     idx += len_type
 
@@ -399,21 +439,27 @@ def _decode_field(s: bytes or bytearray, doc_dec: dict,
         return idx
 
     # Parse field data
-    doc_enc[f_id]['data'] = bytes(s[idx:idx + f_len])
+    doc_enc[f_id]["data"] = bytes(s[idx : idx + f_len])
 
-    if len(doc_enc[f_id]['data']) != f_len:
+    if len(doc_enc[f_id]["data"]) != f_len:
         raise DecodeError(
-            f"Field data is {len(doc_enc[f_id]['data'])} bytes, " +
-            f"expecting {f_len}", s, doc_dec, doc_enc, idx, f_id) from None
+            f"Field data is {len(doc_enc[f_id]['data'])} bytes, "
+            + f"expecting {f_len}",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            f_id,
+        ) from None
 
     try:
-        if spec[f_id]['data_enc'] == 'b':
-            doc_dec[f_id] = doc_enc[f_id]['data'].hex().upper()
+        if spec[f_id]["data_enc"] == "b":
+            doc_dec[f_id] = doc_enc[f_id]["data"].hex().upper()
         else:
-            doc_dec[f_id] = doc_enc[f_id]['data'].decode(
-                                                spec[f_id]['data_enc'])
+            doc_dec[f_id] = doc_enc[f_id]["data"].decode(spec[f_id]["data_enc"])
     except Exception as e:
-        raise DecodeError(f"Failed to decode ({e})",
-                          s, doc_dec, doc_enc, idx, f_id) from None
+        raise DecodeError(
+            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, f_id
+        ) from None
 
     return idx + f_len

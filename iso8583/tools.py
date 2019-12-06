@@ -3,7 +3,7 @@ from typing import IO, AnyStr, Any
 
 
 def add_field(doc_dec: dict, field: str, val: str) -> None:
-    r'''Add or override field and its value to ISO8583 dictionary.
+    r"""Add or override field and its value to ISO8583 dictionary.
 
     Parameters
     ----------
@@ -18,7 +18,7 @@ def add_field(doc_dec: dict, field: str, val: str) -> None:
     --------
     >>> import iso8583
     >>> from iso8583.specs import default
-    >>> s = b'0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840'
+    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840"
     >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
     >>> iso8583.pp(doc_dec, spec=default)
     'bm'  Enabled Fields                      : [2, 12, 20]
@@ -27,8 +27,8 @@ def add_field(doc_dec: dict, field: str, val: str) -> None:
     '2'   Primary Account Number (PAN)        : 16 [1234567890123456]
     '12'  Time, Local Transaction             : [123456]
     '20'  PAN Country Code                    : [840]
-    >>> iso8583.add_field(doc_dec, 't', '0210')
-    >>> iso8583.add_field(doc_dec, '39', '00')
+    >>> iso8583.add_field(doc_dec, "t", "0210")
+    >>> iso8583.add_field(doc_dec, "39", "00")
     >>> s, doc_enc = iso8583.encode(doc_dec, spec=default)
     >>> iso8583.pp(doc_dec, spec=default)
     'bm'  Enabled Fields                      : [2, 12, 20, 39]
@@ -38,18 +38,18 @@ def add_field(doc_dec: dict, field: str, val: str) -> None:
     '12'  Time, Local Transaction             : [123456]
     '20'  PAN Country Code                    : [840]
     '39'  Response Code                       : [00]
-    '''
-    if 'bm' not in doc_dec:
-        doc_dec['bm'] = set()
+    """
+    if "bm" not in doc_dec:
+        doc_dec["bm"] = set()
 
     if field.isnumeric():
-        doc_dec['bm'].add(int(field))
+        doc_dec["bm"].add(int(field))
 
     doc_dec[field] = val
 
 
 def del_field(doc_dec: dict, field: str) -> Any:
-    r'''Delete field from ISO8583 dictionary.
+    r"""Delete field from ISO8583 dictionary.
 
     Parameters
     ----------
@@ -67,7 +67,7 @@ def del_field(doc_dec: dict, field: str) -> Any:
     --------
     >>> import iso8583
     >>> from iso8583.specs import default
-    >>> s = b'0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840'
+    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840"
     >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
     >>> iso8583.pp(doc_dec, spec=default)
     'bm'  Enabled Fields                      : [2, 12, 20]
@@ -76,7 +76,7 @@ def del_field(doc_dec: dict, field: str) -> Any:
     '2'   Primary Account Number (PAN)        : 16 [1234567890123456]
     '12'  Time, Local Transaction             : [123456]
     '20'  PAN Country Code                    : [840]
-    >>> iso8583.del_field(doc_dec, '20')
+    >>> iso8583.del_field(doc_dec, "20")
     '840'
     >>> s, doc_enc = iso8583.encode(doc_dec, spec=default)
     >>> iso8583.pp(doc_dec, spec=default)
@@ -85,19 +85,20 @@ def del_field(doc_dec: dict, field: str) -> Any:
     'p'   Bitmap, Primary                     : [4010000000000000]
     '2'   Primary Account Number (PAN)        : 16 [1234567890123456]
     '12'  Time, Local Transaction             : [123456]
-    '''
-    if 'bm' not in doc_dec:
-        doc_dec['bm'] = set()
+    """
+    if "bm" not in doc_dec:
+        doc_dec["bm"] = set()
 
     if field.isnumeric():
-        doc_dec['bm'].discard(int(field))
+        doc_dec["bm"].discard(int(field))
 
     return doc_dec.pop(field, None)
 
 
-def pp(doc_dec: dict, spec: dict, desc_width: int = 36,
-       stream: IO[AnyStr] = None) -> None:
-    r'''Pretty Print Python dict containing decoded ISO8583 data.
+def pp(
+    doc_dec: dict, spec: dict, desc_width: int = 36, stream: IO[AnyStr] = None
+) -> None:
+    r"""Pretty Print Python dict containing decoded ISO8583 data.
 
     Parameters
     ----------
@@ -124,7 +125,7 @@ def pp(doc_dec: dict, spec: dict, desc_width: int = 36,
     --------
     >>> import iso8583
     >>> from iso8583.specs import default
-    >>> s = b'0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840'
+    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840"
     >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
     >>> iso8583.pp(doc_dec, spec=default)
     'bm'  Enabled Fields                      : [2, 12, 20]
@@ -133,46 +134,63 @@ def pp(doc_dec: dict, spec: dict, desc_width: int = 36,
     '2'   Primary Account Number (PAN)        : 16 [1234567890123456]
     '12'  Time, Local Transaction             : [123456]
     '20'  PAN Country Code                    : [840]
-    '''
+    """
     if stream is None:
         stream = _sys.stdout
 
-    if 'bm' not in doc_dec:
-        doc_dec['bm'] = set()
+    if "bm" not in doc_dec:
+        doc_dec["bm"] = set()
 
-    stream.write("'bm'  {desc: <{desc_width}}: {val}\n".format(
-        desc="Enabled Fields"[:desc_width],
-        desc_width=desc_width,
-        val=sorted(doc_dec['bm'])))
-
-    if 'h' in doc_dec:
-        stream.write("'h'   {desc: <{desc_width}}: [{val}]\n".format(
-            desc=spec['h']['desc'][:desc_width],
+    stream.write(
+        "'bm'  {desc: <{desc_width}}: {val}\n".format(
+            desc="Enabled Fields"[:desc_width],
             desc_width=desc_width,
-            val=doc_dec['h']))
+            val=sorted(doc_dec["bm"]),
+        )
+    )
 
-    if 't' in doc_dec:
-        stream.write("'t'   {desc: <{desc_width}}: [{val}]\n".format(
-            desc=spec['t']['desc'][:desc_width],
-            desc_width=desc_width,
-            val=doc_dec['t']))
+    if "h" in doc_dec:
+        stream.write(
+            "'h'   {desc: <{desc_width}}: [{val}]\n".format(
+                desc=spec["h"]["desc"][:desc_width],
+                desc_width=desc_width,
+                val=doc_dec["h"],
+            )
+        )
 
-    if 'p' in doc_dec:
-        stream.write("'p'   {desc: <{desc_width}}: [{val}]\n".format(
-            desc=spec['p']['desc'][:desc_width],
-            desc_width=desc_width,
-            val=doc_dec['p']))
+    if "t" in doc_dec:
+        stream.write(
+            "'t'   {desc: <{desc_width}}: [{val}]\n".format(
+                desc=spec["t"]["desc"][:desc_width],
+                desc_width=desc_width,
+                val=doc_dec["t"],
+            )
+        )
+
+    if "p" in doc_dec:
+        stream.write(
+            "'p'   {desc: <{desc_width}}: [{val}]\n".format(
+                desc=spec["p"]["desc"][:desc_width],
+                desc_width=desc_width,
+                val=doc_dec["p"],
+            )
+        )
 
     # Sorted list of field numbers as strings
-    for f_id in [str(i) for i in sorted(doc_dec['bm'])]:
-        stream.write("{index:5s} {desc: <{desc_width}}: ".format(
-                                    index=repr(f_id),
-                                    desc=spec[f_id]['desc'][:desc_width],
-                                    desc_width=desc_width))
+    for f_id in [str(i) for i in sorted(doc_dec["bm"])]:
+        stream.write(
+            "{index:5s} {desc: <{desc_width}}: ".format(
+                index=repr(f_id),
+                desc=spec[f_id]["desc"][:desc_width],
+                desc_width=desc_width,
+            )
+        )
 
-        if spec[f_id]['len_type'] > 0:
-            stream.write("{length:0{length_type}d} ".format(
-                                        length=len(doc_dec[f_id]),
-                                        length_type=spec[f_id]['len_type']))
+        if spec[f_id]["len_type"] > 0:
+            stream.write(
+                "{length:0{length_type}d} ".format(
+                    length=len(doc_dec[f_id]), length_type=spec[f_id]["len_type"]
+                )
+            )
 
         stream.write("[{val}]\n".format(val=doc_dec[f_id]))

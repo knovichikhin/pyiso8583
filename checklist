@@ -1,3 +1,5 @@
+World's first human CI/CD
+
 Increment version:
 iso8583.__init__.__version__
 
@@ -11,18 +13,17 @@ python -m doctest .\iso8583\decoder.py
 python -m doctest .\iso8583\tools.py
 
 Lint:
-flake8 iso8583\__init__.py
-flake8 iso8583\encoder.py
-flake8 iso8583\decoder.py
-flake8 iso8583\tools.py
-flake8 iso8583\specs.py
+black iso8583
+black tests
+flake8 --max-line-length 80 --select B950 --extend-ignore E203, E501
 
 Unit test:
-python -m pytest
+pytest
 
 Coverage:
-python -m pytest --cov=./
-python -m coverage xml
+pytest --cov=./iso8583 .
+coverage html
+coverage xml
 codecov -f coverage.xml -t <token>
 
 Docs:
