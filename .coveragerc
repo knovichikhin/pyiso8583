@@ -1,19 +1,10 @@
+# .coveragerc to control coverage.py
 [run]
 branch = True
 source = pyiso8583
-
-[paths]
-source =
-   iso8583/
-
-[report]
-exclude_lines =
-    if self.debug:
-    pragma: no cover
-    raise NotImplementedError
-    if __name__ == .__main__.:
-ignore_errors = True
 omit =
     tests/*
     setup.py
-    iso8583/specs.py
+
+[report]
+ignore_errors = True
