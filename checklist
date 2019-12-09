@@ -6,32 +6,26 @@ iso8583.__init__.__version__
 Update change log:
 CHANGELOG.rst
 
-Doctest:
-python -m doctest .\iso8583\__init__.py
-python -m doctest .\iso8583\encoder.py
-python -m doctest .\iso8583\decoder.py
-python -m doctest .\iso8583\tools.py
-
 Lint:
 black iso8583
 black tests
 flake8 --max-line-length 80 --select B950 --extend-ignore E203, E501
 
 Unit test:
-pytest
+python -m pytest
 
 Coverage:
-pytest --cov=./iso8583 .
+python -m pytest --cov=./
 coverage html
 coverage xml
 codecov -f coverage.xml -t <token>
 
 Docs:
-python -m readme_renderer .\README.rst
 .\docs\make.bat html
 
 Build:
 python .\setup.py sdist bdist_wheel
+python -m twine check dist/*
 
 Upload to test:
 python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
