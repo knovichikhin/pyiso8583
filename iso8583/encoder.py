@@ -11,14 +11,14 @@ class EncodeError(ValueError):
     msg : str
         The unformatted error message
     doc_dec : dict
-        Partially decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data being encoded
     doc_enc : dict
-        Partially encoded Python representation of ISO8583 bytes instance
-    field : int or str
+        Dict containing partially encoded ISO8583 data
+    field : str
         The ISO8583 field where parsing failed
     """
 
-    def __init__(self, msg: str, doc_dec: dict, doc_enc: dict, field: int or str):
+    def __init__(self, msg: str, doc_dec: dict, doc_enc: dict, field: str):
         errmsg = f"{msg}: field {field}"
         ValueError.__init__(self, errmsg)
         self.msg = msg
@@ -46,7 +46,7 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
     s : bytearray
         Encoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
 
     Raises
     ------
@@ -68,7 +68,7 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
     """
     if not isinstance(doc_dec, dict):
         raise TypeError(
-            f"Decoded ISO8583 data must be dict, " f"not {doc_dec.__class__.__name__}"
+            f"Decoded ISO8583 data must be dict, not {doc_dec.__class__.__name__}"
         )
 
     s = bytearray()
@@ -97,9 +97,9 @@ def _encode_header(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
@@ -107,7 +107,7 @@ def _encode_header(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     Returns
     -------
     bytes
-        Encoded ISO8583 data containing header
+        Encoded ISO8583 header data
 
     Raises
     ------
@@ -155,9 +155,9 @@ def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
@@ -165,7 +165,7 @@ def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     Returns
     -------
     bytes
-        Encoded ISO8583 data containing message type
+        Encoded ISO8583 message type data
 
     Raises
     ------
@@ -197,7 +197,7 @@ def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
 
     if len(doc_enc["t"]["data"]) != f_len:
         raise EncodeError(
-            f"Field data is {len(doc_enc['t']['data'])} " + f"bytes, expecting {f_len}",
+            f"Field data is {len(doc_enc['t']['data'])} bytes, expecting {f_len}",
             doc_dec,
             doc_enc,
             "t",
@@ -212,9 +212,9 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
@@ -222,7 +222,7 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     Returns
     -------
     bytes
-        Encoded ISO8583 data containing primary and/or secondary bitmaps
+        Encoded ISO8583 primary and/or secondary bitmaps data
 
     Raises
     ------
@@ -306,9 +306,9 @@ def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     f_id : str
         Field ID to be encoded
     spec : dict
@@ -318,7 +318,7 @@ def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
     Returns
     -------
     bytes
-        Encoded ISO8583 data containing field data
+        Encoded ISO8583 field data
 
     Raises
     ------
@@ -352,7 +352,7 @@ def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
     if len_type == 0:
         if f_len != spec[f_id]["max_len"]:
             raise EncodeError(
-                f"Field data is {f_len} bytes, " + f"expecting {spec[f_id]['max_len']}",
+                f"Field data is {f_len} bytes, expecting {spec[f_id]['max_len']}",
                 doc_dec,
                 doc_enc,
                 f_id,
@@ -365,8 +365,7 @@ def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
 
     if f_len > spec[f_id]["max_len"]:
         raise EncodeError(
-            f"Field data is {f_len} bytes, "
-            + f"larger than maximum {spec[f_id]['max_len']}",
+            f"Field data is {f_len} bytes, larger than maximum {spec[f_id]['max_len']}",
             doc_dec,
             doc_enc,
             f_id,
