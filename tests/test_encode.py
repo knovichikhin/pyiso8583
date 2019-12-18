@@ -1273,6 +1273,9 @@ def test_header_negative_incorrect_ascii_data():
     """
     ASCII header is required by spec and provided.
     However, the data is not ASCII
+    CPython and PyPy throw differently worded exception
+    CPython: 'ascii' codec can't encode characters in position 0-5: ordinal not in range(128)
+    PyPy:    'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 6
@@ -1288,7 +1291,7 @@ def test_header_negative_incorrect_ascii_data():
 
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .'ascii' codec can't encode characters in position 0-5: ordinal not in range.128..: field h",
+        match="Failed to encode .'ascii' codec can't encode character.*: ordinal not in range.128..: field h",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
@@ -1384,6 +1387,9 @@ def test_type_ascii_incorrect_data():
     """
     ASCII message type is required and provided.
     However, the data is not ASCII
+    CPython and PyPy throw differently worded exception
+    CPython: 'ascii' codec can't encode characters in position 0-3: ordinal not in range(128)
+    PyPy:    'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 6
@@ -1399,7 +1405,7 @@ def test_type_ascii_incorrect_data():
 
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .'ascii' codec can't encode characters in position 0-3: ordinal not in range.128..: field t",
+        match="Failed to encode .'ascii' codec can't encode character.*: ordinal not in range.128..: field t",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
@@ -1571,6 +1577,9 @@ def test_type_bdc_over_max():
 def test_type_bdc_odd():
     """
     BDC message type is required and odd length is provided
+    CPython and PyPy throw differently worded exception
+    CPython: non-hexadecimal number found in fromhex() arg at position 3
+    PyPy:    non-hexadecimal number found in fromhex() arg at position 2
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 6
@@ -1581,7 +1590,7 @@ def test_type_bdc_odd():
 
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 3.: field t",
+        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 2|3.: field t",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
@@ -2083,6 +2092,9 @@ def test_fixed_field_ascii_incorrect_data():
     """
     ASCII fixed field is required and provided.
     However, the data is not ASCII
+    CPython and PyPy throw differently worded exception
+    CPython: 'ascii' codec can't encode characters in position 0-1: ordinal not in range(128)
+    PyPy:    'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 6
@@ -2101,7 +2113,7 @@ def test_fixed_field_ascii_incorrect_data():
 
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .'ascii' codec can't encode characters in position 0-1: ordinal not in range.128..: field 2",
+        match="Failed to encode .'ascii' codec can't encode character.*: ordinal not in range.128..: field 2",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
@@ -2383,6 +2395,9 @@ def test_fixed_field_bdc_over_max():
 def test_fixed_field_bdc_odd():
     """
     BDC fixed field is required and odd length is provided
+    CPython and PyPy throw differently worded exception
+    CPython: non-hexadecimal number found in fromhex() arg at position 5
+    PyPy:    non-hexadecimal number found in fromhex() arg at position 4
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 6
@@ -2396,7 +2411,7 @@ def test_fixed_field_bdc_odd():
 
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 5.: field 2",
+        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 4|5.: field 2",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
@@ -2747,6 +2762,9 @@ def test_variable_field_bdc_over_max():
 def test_variable_field_bdc_odd():
     """
     BDC variable field is required and odd length is provided
+    CPython and PyPy throw differently worded exception
+    CPython: non-hexadecimal number found in fromhex() arg at position 5
+    PyPy:    non-hexadecimal number found in fromhex() arg at position 4
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 6
@@ -2761,7 +2779,7 @@ def test_variable_field_bdc_odd():
 
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 5.: field 2",
+        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 4|5.: field 2",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
