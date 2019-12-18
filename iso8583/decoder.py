@@ -13,12 +13,12 @@ class DecodeError(ValueError):
     s : bytes or bytearray
         The ISO8583 bytes instance being parsed
     doc_dec : dict
-        Partially decoded Python representation of ISO8583 bytes instance
+        Dict containing partially decoded ISO8583 data
     doc_enc : dict
-        Partially encoded Python representation of ISO8583 bytes instance
+        Dict containing partially encoded ISO8583 data
     pos : int
-        The start index of ISO8583 bytes instance where parsing failed
-    field : int or str
+        The start index where ISO8583 bytes data failed parsing
+    field : str
         The ISO8583 field where parsing failed
     """
 
@@ -54,7 +54,7 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
     Parameters
     ----------
     s : bytes or bytearray
-        Byte array containing encoded ISO8583 data
+        Encoded ISO8583 data
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
@@ -62,9 +62,9 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
     Returns
     -------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
 
     Raises
     ------
@@ -82,8 +82,7 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
     """
     if not isinstance(s, (bytes, bytearray)):
         raise TypeError(
-            f"the ISO8583 data must be bytes or bytearray, "
-            f"not {s.__class__.__name__}"
+            f"the ISO8583 data must be bytes or bytearray, not {s.__class__.__name__}"
         )
 
     doc_dec = {"bm": set()}
@@ -126,11 +125,11 @@ def _decode_header(
     Parameters
     ----------
     s : bytes or bytearray
-        Byte array containing encoded ISO8583 data
+        Encoded ISO8583 data
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     idx : int
         Current index in ISO8583 byte array
     spec : dict
@@ -158,7 +157,7 @@ def _decode_header(
 
     if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
             s,
             doc_dec,
             doc_enc,
@@ -187,11 +186,11 @@ def _decode_type(
     Parameters
     ----------
     s : bytes or bytearray
-        Byte array containing encoded ISO8583 data
+        Encoded ISO8583 data
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     idx : int
         Current index in ISO8583 byte array
     spec : dict
@@ -220,7 +219,7 @@ def _decode_type(
 
     if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
             s,
             doc_dec,
             doc_enc,
@@ -249,11 +248,11 @@ def _decode_bitmaps(
     Parameters
     ----------
     s : bytes or bytearray
-        Byte array containing encoded ISO8583 data
+        Encoded ISO8583 data
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     idx : int
         Current index in ISO8583 byte array
     spec : dict
@@ -282,7 +281,7 @@ def _decode_bitmaps(
 
     if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
             s,
             doc_dec,
             doc_enc,
@@ -330,7 +329,7 @@ def _decode_bitmaps(
 
     if len(s[idx : idx + f_len]) != f_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, " + f"expecting {f_len}",
+            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
             s,
             doc_dec,
             doc_enc,
@@ -350,32 +349,36 @@ def _decode_bitmaps(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "1"
         ) from None
 
-    for i, byte in enumerate(bm):
-        for bit in range(1, 9):
-            if byte >> (8 - bit) & 1:
-                doc_dec["bm"].add(64 + i * 8 + bit)
-                doc_enc["bm"].add(64 + i * 8 + bit)
+    doc_dec["bm"].update(
+        [
+            64 + byte_idx * 8 + bit
+            for bit in range(1, 9)
+            for byte_idx, byte in enumerate(bm)
+            if byte >> (8 - bit) & 1
+        ]
+    )
+    doc_enc["bm"] = doc_dec["bm"].copy()
 
     return idx + f_len
 
 
 def _decode_field(
-    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, f_id: int, spec: dict
+    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, f_id: str, spec: dict
 ) -> int:
     r"""Decode ISO8583 individual fields.
 
     Parameters
     ----------
     s : bytes or bytearray
-        Byte array containing encoded ISO8583 data
+        Encoded ISO8583 data
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     doc_enc : dict
-        Encoded Python representation of ISO8583 bytes instance
+        Dict containing encoded ISO8583 data
     idx : int
         Current index in ISO8583 byte array
-    f_id : int
-        Field number to be decoded
+    f_id : str
+        Field ID to be decoded
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
@@ -397,8 +400,7 @@ def _decode_field(
 
     if len(s[idx : idx + len_type]) != len_type:
         raise DecodeError(
-            f"Field length is {len(s[idx:idx + len_type])} bytes wide, "
-            + f"expecting {len_type}",
+            f"Field length is {len(s[idx:idx + len_type])} bytes wide, expecting {len_type}",
             s,
             doc_dec,
             doc_enc,
@@ -423,8 +425,7 @@ def _decode_field(
 
     if f_len > spec[f_id]["max_len"]:
         raise DecodeError(
-            f"Field data is {f_len} bytes, "
-            + f"larger than maximum {spec[f_id]['max_len']}",
+            f"Field data is {f_len} bytes, larger than maximum {spec[f_id]['max_len']}",
             s,
             doc_dec,
             doc_enc,
@@ -443,8 +444,7 @@ def _decode_field(
 
     if len(doc_enc[f_id]["data"]) != f_len:
         raise DecodeError(
-            f"Field data is {len(doc_enc[f_id]['data'])} bytes, "
-            + f"expecting {f_len}",
+            f"Field data is {len(doc_enc[f_id]['data'])} bytes, expecting {f_len}",
             s,
             doc_dec,
             doc_enc,
