@@ -5,55 +5,78 @@ Fields
 ------
 Supported fields:
 
-- `h` - Message Header. If specification does not have a header then
-  set `max_len` to 0.
-- `t` - Message Type Identifier
-- `p` - Primary Bitmap
-- `1` .. `128` - Regular fields
+- **h** - Message Header. If a specification does not have a header then
+  set **max_len** to ``0`` to disable it.
+- **t** - Message Type Identifier
+- **p** - Primary Bitmap
+- **1** - Secondary Bitmap
+- **2** .. **128** - Regular fields
 
 Field Properties
 ----------------
 Each field defines these properties:
 
-- `data_enc` - field's data encoding type, where:
+- **data_enc** - field's data encoding type, where:
 
-  - Use "b" for binary-coded decimal data (e.g. 2-byte "\\x9F\\x02"
-    EMV amount tag where ASCII equivalent is 4-byte "9F02" hexstring).
-  - Otherwise, provide any valid Python encoding. For example, "ascii" or
-    "latin-1" for ASCII data and "cp500" or similar for EBCDIC data.
+  - Use ``b`` for binary-coded decimal data (e.g. an ABCD hex string
+    is encoded as \\xAB\\xCD 2-byte value).
+  - Otherwise, provide any valid Python encoding. For example, ``ascii`` or
+    ``latin-1`` for ASCII data and ``cp500`` or similar for EBCDIC data.
 
-- `len_enc` - the same as `data_enc` but for field length.
-  Some fields, such as ICC data, have binary data but ASCII length.
+- **len_enc** - the same as **data_enc** but for field length.
+  Some fields, such as ICC data, could have binary data but ASCII length.
   This parameter does not affect fixed-length fields.
 
-- `len_type` - length of field's length in bytes.
+- **len_type** - field's length type: fixed, LVAR, LLVAR, etc.
+  **len_type** depends on the type of **len_enc** being used.
+  BCD **len_enc** can fit higher length ranges in fewer bytes.
 
-  - For ASCII and EBCDIC length:
+  +--------------+---------------------------------------+
+  |              |              **len_enc**              |
+  |              +----------------+----------------------+
+  | **len_type** | ASCII / EBCDIC | Binary-Coded Decimal |
+  +--------------+----------------+----------------------+
+  |  Fixed       |          ``0`` |                ``0`` |
+  +--------------+----------------+----------------------+
+  |  LVAR        |          ``1`` |                ``1`` |
+  +--------------+----------------+----------------------+
+  |  LLVAR       |          ``2`` |                ``1`` |
+  +--------------+----------------+----------------------+
+  |  LLLVAR      |          ``3`` |                ``2`` |
+  +--------------+----------------+----------------------+
+  |  LLLLVAR     |          ``4`` |                ``2`` |
+  +--------------+----------------+----------------------+
 
-    - 0 = fixed
-    - 1 = LVAR
-    - 2 = LLVAR
-    - 3 = LLLVAR
-    - 4 = LLLLVAR, and so on.
+- **max_len** - field's maximum length in bytes. For fixed fields
+  **max_len** defines the fixed length of the field.
 
-  - For binary-coded decimal length:
-
-    - 0 = fixed
-    - 1 = LVAR
-    - 1 = LLVAR
-    - 2 = LLLVAR
-    - 2 = LLLLVAR, and so on.
-
-- `max_len` - field's maximum length in bytes. For 0-length
-  fields (fixed) `max_len` defines the set length of the field.
-
-- `desc` - field's description that's printed in a pretty format.
-  `desc` plays no role in encoding or decoding data. It's safe to omit it
-  from the specifications. If omitted `iso8583.pp` may or may not work
+- **desc** - field's description that's printed in a pretty format.
+  **desc** plays no role in encoding or decoding data. It's safe to omit it
+  from the specifications. If omitted :func:`iso8583.pp` may or may not work
   as expected.
 
 Sample Field Specifications
 ---------------------------
+Binary-coded decimal primary bitmap (the same applies to the secondary bitmap)::
+
+    specification["p"] = {
+        "data_enc": "b",
+        "len_enc": "b",
+        "len_type": 0,
+        "max_len": 8,
+        "desc": "BCD bitmap, e.g. \x12\x34\x56\x78\x90\xAB\xCD\xEF"
+    }
+
+Hex string primary bitmap (the same applies to the secondary bitmap)::
+
+    specification["p"] = {
+        "data_enc": "ascii",
+        "len_enc": "ascii",
+        "len_type": 0,
+        "max_len": 16,
+        "desc": "Hex string bitmap, e.g 1234567890ABCDEF"
+    }
+
 Field 2 that is a BCD fixed length field of 10 bytes::
 
     specification["2"] = {
