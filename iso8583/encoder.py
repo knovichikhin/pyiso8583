@@ -127,26 +127,7 @@ def _encode_header(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
             f"Field data is required according to specifications", doc_dec, doc_enc, "h"
         ) from None
 
-    doc_enc["h"] = {"len": b"", "data": b""}
-
-    try:
-        if spec["h"]["data_enc"] == "b":
-            doc_enc["h"]["data"] = bytes.fromhex(doc_dec["h"])
-        else:
-            doc_enc["h"]["data"] = doc_dec["h"].encode(spec["h"]["data_enc"])
-    except Exception as e:
-        raise EncodeError(f"Failed to encode ({e})", doc_dec, doc_enc, "h") from None
-
-    if len(doc_enc["h"]["data"]) != spec["h"]["max_len"]:
-        raise EncodeError(
-            f"Field data is {len(doc_enc['h']['data'])} bytes, "
-            + f"expecting {spec['h']['max_len']}",
-            doc_dec,
-            doc_enc,
-            "h",
-        ) from None
-
-    return doc_enc["h"]["data"]
+    return _encode_field(doc_dec, doc_enc, "h", spec)
 
 
 def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
@@ -243,7 +224,7 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
             "Bitmap contains fields outside 1-128 range", doc_dec, doc_enc, "bm"
         ) from None
 
-    # Eanble or disable secondary bitmap based on presence of 65-128 fields
+    # Enable or disable secondary bitmap based on presence of 65-128 fields
     if doc_dec["bm"].isdisjoint(range(65, 129)):
         doc_dec["bm"].discard(1)
     else:
