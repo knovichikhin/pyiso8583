@@ -35,15 +35,15 @@ It returns two dictionaries: one with decoded data and one with encoded data.
 
     >>> import pprint
     >>> import iso8583
-    >>> from iso8583.specs import default as spec
-    >>> s = b'0200\x40\x00\x00\x00\x00\x00\x00\x00101234567890'
+    >>> from iso8583.specs import default_ascii as spec
+    >>> s = b'02004000000000000000101234567890'
     >>> doc_dec, doc_enc = iso8583.decode(s, spec)
     >>> pprint.pp(doc_dec) # Decoded data
     {'bm': {2}, 't': '0200', 'p': '4000000000000000', '2': '1234567890'}
     >>> pprint.pp(doc_enc) # Broken down encoded data
     {'bm': {2},
      't': {'len': b'', 'data': b'0200'},
-     'p': {'len': b'', 'data': b'@\x00\x00\x00\x00\x00\x00\x00'},
+     'p': {'len': b'', 'data': b'4000000000000000'},
      '2': {'len': b'10', 'data': b'1234567890'}}
 
 Modify the decoded message to send a response back.
@@ -64,11 +64,11 @@ It returns a raw ISO8583 message and a dictionary with encoded data.
 
     >>> s, doc_enc = iso8583.encode(doc_dec, spec)
     >>> s
-    bytearray(b'0210\x00\x00\x00\x00\x02\x00\x00\x0005')
+    bytearray(b'0210000000000200000005')
     >>> pprint.pp(doc_enc)
     {'t': {'len': b'', 'data': b'0210'},
      'bm': {39},
-     'p': {'len': b'', 'data': b'\x00\x00\x00\x00\x02\x00\x00\x00'},
+     'p': {'len': b'', 'data': b'0000000002000000'},
      '39': {'len': b'', 'data': b'05'}}
 
 Optional Helper Functions

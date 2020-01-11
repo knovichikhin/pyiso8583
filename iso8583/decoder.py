@@ -75,10 +75,18 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
 
     Examples
     --------
+    >>> import pprint
     >>> import iso8583
-    >>> from iso8583.specs import default
-    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456111"
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
+    >>> from iso8583.specs import default_ascii as spec
+    >>> s = b"02004010100000000000161234567890123456123456111"
+    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
+    >>> pprint.pp(doc_dec)
+    {'bm': {2, 12, 20},
+     't': '0200',
+     'p': '4010100000000000',
+     '2': '1234567890123456',
+     '12': '123456',
+     '20': '111'}
     """
     if not isinstance(s, (bytes, bytearray)):
         raise TypeError(

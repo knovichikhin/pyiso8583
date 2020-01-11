@@ -58,13 +58,15 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
     Examples
     --------
     >>> import iso8583
-    >>> from iso8583.specs import default
-    >>> doc_dec = {}
-    >>> iso8583.add_field(doc_dec, "t", "0210")
-    >>> iso8583.add_field(doc_dec, "39", "00")
-    >>> s, doc_enc = iso8583.encode(doc_dec, spec=default)
+    >>> from iso8583.specs import default_ascii as spec
+    >>> doc_dec = {
+    ...     't': '0210',
+    ...     'bm': set([3, 39]),
+    ...     '3': '111111',
+    ...     '39': '05'}
+    >>> s, doc_enc = iso8583.encode(doc_dec, spec)
     >>> s
-    bytearray(b'0210\x00\x00\x00\x00\x02\x00\x00\x0000')
+    bytearray(b'0210200000000200000011111105')
     """
     if not isinstance(doc_dec, dict):
         raise TypeError(
