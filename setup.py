@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from iso8583 import __version__
 
 classifiers = [
@@ -29,7 +29,7 @@ if __name__ == "__main__":
         long_description_content_type="text/x-rst",
         license="MIT",
         url="https://github.com/manoutoftime/pyiso8583",
-        packages=["iso8583"],
+        packages=find_packages(exclude=["tests"]),
         classifiers=classifiers,
         python_requires=">=3.6",
         keywords="iso8583 8583",
