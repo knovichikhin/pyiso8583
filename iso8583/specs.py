@@ -18,16 +18,19 @@ Each field defines these properties:
 
 - **data_enc** - field's data encoding type, where:
 
-  - Use ``b`` for binary-coded decimal data (e.g. an ABCD hex string
-    is encoded as \\xAB\\xCD 2-byte value).
+  - Use ``b`` for binary-coded decimal data (e.g. an ``ABCD`` hex string
+    is encoded as ``\xAB\xCD`` 2-byte value).
   - Otherwise, provide any valid Python encoding. For example, ``ascii`` or
     ``latin-1`` for ASCII data and ``cp500`` or similar for EBCDIC data.
 
-- **len_enc** - the same as **data_enc** but for field length.
+- **len_enc** - field's length encoding type. Follows the same rules as **data_enc**.
   Some fields, such as ICC data, could have binary data but ASCII length.
   This parameter does not affect fixed-length fields.
 
 - **len_type** - field's length type: fixed, LVAR, LLVAR, etc.
+  Expressed as number of bytes in field length. For example,
+  ASCII LLVAR length takes up 2 bytes (``b'00'`` - ``b'99'``).
+  BCD LLVAR length can take up only 1 byte (``b'\x00'`` - ``b'\x63'``).
   **len_type** depends on the type of **len_enc** being used.
   BCD **len_enc** can fit higher length ranges in fewer bytes.
 
@@ -112,7 +115,7 @@ Sample Message Specifications
 
 ::
 
-    {
+    default = {
     "h":   {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 0,   "desc": "Message Header"},
     "t":   {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 4,   "desc": "Message Type"},
     "p":   {"data_enc": "b",     "len_enc": "ascii", "len_type": 0, "max_len": 8,   "desc": "Bitmap, Primary"},
