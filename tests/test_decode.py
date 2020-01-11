@@ -1,6 +1,7 @@
 import pickle
-import pytest
+
 import iso8583
+import pytest
 
 spec = {
     "h": {
@@ -971,6 +972,145 @@ def test_input_type():
         iso8583.decode(s, spec=spec)
 
 
+def test_header_length_negative_missing():
+    """
+    Header length is required but not provided
+    The parser assumes that "he" is the header length.
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"header02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Failed to decode length .invalid literal for int.. with base 10: 'he'.: field h pos 0",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_header_length_negative_partial():
+    """
+    Header length is required but partially provided.
+    The parser assumes that "1h" is the header length.
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"1header02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Failed to decode length .invalid literal for int.. with base 10: '1h'.: field h pos 0",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_header_length_negative_incorrect_encoding():
+    """
+    Header length is required and provided.
+    However, the spec encoding is not correct
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "invalid"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"06header02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Failed to decode length .unknown encoding: invalid.: field h pos 0",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_header_length_negative_incorrect_ascii_data():
+    """
+    Header length is required and provided.
+    However, the data is not ASCII
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"\xff\xffheader02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Failed to decode length .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field h pos 0",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_header_length_negative_incorrect_not_numeric():
+    """
+    Header length is required and provided.
+    However, the length is not numeric ASCII
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"ggheader02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Failed to decode length .invalid literal for int.. with base 10: 'gg'.: field h pos 0",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_header_length_negative_incorrect_bcd_data():
+    """
+    BCD Header length is required and provided.
+    However, the data is not hex.
+    Note: this passes, "g" is valid hex data when decoding.
+    It will fail on field parsing, because not sufficient field data was provided
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_type"] = 1
+    spec["h"]["max_len"] = 99
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"gheader02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError, match="Field data is 26 bytes, expecting 67: field h pos 1"
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_header_length_negative_over_max():
+    """
+    Header length is required and provided.
+    However, it's over the specified maximum.
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 1
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    s = b"8header02000000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Field data is 8 bytes, larger than maximum 6: field h pos 0",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
 def test_header_ascii_absent():
     """
     ASCII header is not required by spec and not provided
@@ -1003,6 +1143,7 @@ def test_header_ascii_present():
     ASCII header is required by spec and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1058,6 +1199,7 @@ def test_header_ebcdic_present():
     EBCDIC header is required by spec and provided
     """
     spec["h"]["data_enc"] = "cp500"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1113,6 +1255,7 @@ def test_header_bcd_present():
     BCD header is required by spec and provided
     """
     spec["h"]["data_enc"] = "b"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1141,6 +1284,7 @@ def test_header_negative_missing():
     String header is required by spec but not provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1157,6 +1301,7 @@ def test_header_negative_partial():
     String header is required by spec but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1174,6 +1319,7 @@ def test_header_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "invalid"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1192,6 +1338,7 @@ def test_header_negative_incorrect_ascii_data():
     However, the data is not ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1211,6 +1358,7 @@ def test_header_negative_incorrect_bcd_data():
     Note: this passes, "header" is valid hex data when decoding.
     """
     spec["h"]["data_enc"] = "b"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1240,6 +1388,7 @@ def test_type_ascii_absent():
     Note: here parser picks up message type as "0000" and fails at primary bitmap.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1257,6 +1406,7 @@ def test_type_ascii_present():
     ASCII message type is required by spec and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1286,6 +1436,7 @@ def test_type_ebcdic_absent():
     Note: here parser picks up message type as "0000" and fails at primary bitmap.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "cp500"
     spec["p"]["data_enc"] = "ascii"
@@ -1303,6 +1454,7 @@ def test_type_ebcdic_present():
     ASCII message type is required by spec and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "cp500"
     spec["p"]["data_enc"] = "ascii"
@@ -1332,6 +1484,7 @@ def test_type_bcd_absent():
     Note: here parser picks up message type as "\x30\x30" and fails at primary bitmap.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "ascii"
@@ -1348,6 +1501,7 @@ def test_type_bcd_present():
     ASCII message type is required by spec and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "ascii"
@@ -1376,6 +1530,7 @@ def test_type_negative_missing():
     Type is required for all messages
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1392,6 +1547,7 @@ def test_type_negative_partial():
     Message type is required all messages but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1409,6 +1565,7 @@ def test_type_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "invalid"
     spec["p"]["data_enc"] = "ascii"
@@ -1427,6 +1584,7 @@ def test_type_negative_incorrect_ascii_data():
     However, the data is not ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1446,6 +1604,7 @@ def test_type_negative_incorrect_bcd_data():
     Note: this passes, "ab" is valid hex data when decoding.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "ascii"
@@ -1548,6 +1707,7 @@ def test_primary_bitmap_ascii():
     This test will validate bitmap decoding for fields 1-64
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1578,6 +1738,7 @@ def test_primary_bitmap_ebcdic():
     This test will validate bitmap decoding for fields 1-64
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "cp500"
@@ -1608,6 +1769,7 @@ def test_primary_bitmap_bcd():
     This test will validate bitmap decoding for fields 1-64
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1638,6 +1800,7 @@ def test_primary_bitmap_negative_missing():
     Primary bitmap is required for all messages
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1654,6 +1817,7 @@ def test_primary_bitmap_negative_partial():
     Primary bitmap is required for all messages but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1671,6 +1835,7 @@ def test_primary_bitmap_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "invalid"
@@ -1689,6 +1854,7 @@ def test_primary_bitmap_negative_incorrect_ascii_data():
     However, the data is not ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1707,6 +1873,7 @@ def test_primary_bitmap_negative_incorrect_ascii_hex():
     However, the data is not ASCII hex
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1727,6 +1894,7 @@ def test_primary_bitmap_negative_incorrect_bcd_data():
     It will fail on field parsing, because no fields were provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1748,6 +1916,7 @@ def test_primary_bitmap_negative_leftover_data():
     However, there is extra data left in message.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1764,6 +1933,7 @@ def test_secondary_bitmap_ascii():
     This test will validate bitmap decoding for field 1-128
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1795,6 +1965,7 @@ def test_secondary_bitmap_ebcdic():
     This test will validate bitmap decoding for field 1-128
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "cp500"
@@ -1826,6 +1997,7 @@ def test_secondary_bitmap_bcd():
     This test will validate bitmap decoding for field 1-128
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1857,6 +2029,7 @@ def test_secondary_bitmap_negative_missing():
     Secondary bitmap is required but not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1874,6 +2047,7 @@ def test_secondary_bitmap_negative_partial():
     Secondary bitmap is required for all messages but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1892,6 +2066,7 @@ def test_secondary_bitmap_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1911,6 +2086,7 @@ def test_secondary_bitmap_negative_incorrect_ascii_data():
     However, the data is not ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1930,6 +2106,7 @@ def test_secondary_bitmap_negative_incorrect_ascii_hex():
     However, the data is not ASCII hex
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1951,6 +2128,7 @@ def test_secondary_bitmap_negative_incorrect_bcd_data():
     It will fail on field parsing, because no fields were provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1973,6 +2151,7 @@ def test_secondary_bitmap_negative_leftover_data():
     However, there is extra data left in message.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2044,6 +2223,7 @@ def test_field_zero_length_field():
     Zero-length field is required and provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2081,6 +2261,7 @@ def test_field_length_negative_missing():
     Field length is required but not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2102,6 +2283,7 @@ def test_field_length_negative_partial():
     Field length is required but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2124,6 +2306,7 @@ def test_field_length_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2146,6 +2329,7 @@ def test_field_length_negative_incorrect_ascii_data():
     However, the data is not ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2162,12 +2346,13 @@ def test_field_length_negative_incorrect_ascii_data():
         iso8583.decode(s, spec=spec)
 
 
-def test_field_length_negative_incorrect_ascii_hex():
+def test_field_length_negative_incorrect_not_numeric():
     """
     Field length is required and provided.
-    However, the data is not ASCII hex
+    However, the length is not numeric ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2192,6 +2377,7 @@ def test_field_length_negative_incorrect_bcd_data():
     It will fail on field parsing, because no field was provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2213,6 +2399,7 @@ def test_field_length_negative_leftover_data():
     However, there is extra data left in message.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2234,6 +2421,7 @@ def test_field_length_negative_over_max():
     However, it's over the specified maximum.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2255,6 +2443,7 @@ def test_field_negative_missing():
     Field is required but not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2275,6 +2464,7 @@ def test_field_negative_partial():
     Field is required but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2296,6 +2486,7 @@ def test_field_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2318,6 +2509,7 @@ def test_field_negative_incorrect_ascii_data():
     However, the data is not ASCII
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2341,6 +2533,7 @@ def test_field_negative_incorrect_ascii_hex():
     Note: this passes, "gg" is valid hex data when decoding.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2379,6 +2572,7 @@ def test_field_negative_incorrect_bcd_data():
     Note: this passes, "g" is valid hex data when decoding.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2416,6 +2610,7 @@ def test_field_negative_leftover_data():
     However, there is extra data left in message.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"

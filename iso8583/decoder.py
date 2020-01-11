@@ -146,36 +146,12 @@ def _decode_header(
     DecodeError
         An error decoding ISO8583 bytearray.
     """
-    f_len = spec["h"]["max_len"]
 
     # Header is not expected according to specifications
-    if f_len <= 0:
+    if spec["h"]["max_len"] <= 0:
         return idx
 
-    doc_dec["h"] = ""
-    doc_enc["h"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
-
-    if len(s[idx : idx + f_len]) != f_len:
-        raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
-            s,
-            doc_dec,
-            doc_enc,
-            idx,
-            "h",
-        ) from None
-
-    try:
-        if spec["h"]["data_enc"] == "b":
-            doc_dec["h"] = s[idx : idx + f_len].hex().upper()
-        else:
-            doc_dec["h"] = s[idx : idx + f_len].decode(spec["h"]["data_enc"])
-    except Exception as e:
-        raise DecodeError(
-            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "h"
-        ) from None
-
-    return idx + f_len
+    return _decode_field(s, doc_dec, doc_enc, idx, "h", spec)
 
 
 def _decode_type(

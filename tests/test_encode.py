@@ -1,6 +1,7 @@
 import pickle
-import pytest
+
 import iso8583
+import pytest
 
 spec = {
     "h": {
@@ -928,6 +929,7 @@ def test_EncodeError_exception():
     Validate EncodeError class
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -953,6 +955,7 @@ def test_EncodeError_exception_pickle():
     Validate EncodeError class with pickle
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -988,6 +991,7 @@ def test_header_no_key():
     Message header is required and key is not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1037,6 +1041,7 @@ def test_header_ascii_present():
     ASCII header is required by spec and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1098,6 +1103,7 @@ def test_header_ebcdic_present():
     EBCDIC header is required by spec and provided
     """
     spec["h"]["data_enc"] = "cp500"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1159,6 +1165,7 @@ def test_header_bcd_present():
     BCD header is required by spec and provided
     """
     spec["h"]["data_enc"] = "b"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1221,6 +1228,7 @@ def test_header_negative_missing():
     String header is required by spec but not provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1238,6 +1246,7 @@ def test_header_negative_partial():
     String header is required by spec but partially provided.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1256,6 +1265,7 @@ def test_header_negative_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "invalid"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1278,6 +1288,7 @@ def test_header_negative_incorrect_ascii_data():
     PyPy:    'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1302,6 +1313,7 @@ def test_header_negative_incorrect_bcd_data():
     However, the data is not hex
     """
     spec["h"]["data_enc"] = "b"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1315,11 +1327,382 @@ def test_header_negative_incorrect_bcd_data():
         iso8583.encode(doc_dec, spec=spec)
 
 
+def test_variable_header_ascii_over_max():
+    """
+    ASCII variable header is required and over max provided
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    doc_dec = {"h": "header12", "t": "0210", "bm": set()}
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Field data is 8 bytes, larger than maximum 6: field h",
+    ):
+        iso8583.encode(doc_dec, spec=spec)
+
+
+def test_variable_header_ascii_present():
+    """
+    ASCII variable header is required and provided
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "header", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"06header0210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"06"
+    assert doc_enc["h"]["data"] == b"header"
+    assert doc_dec["h"] == "header"
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set([])
+    assert doc_dec["bm"] == set([])
+
+
+def test_variable_header_ascii_present_zero_legnth():
+    """
+    ASCII zero-length variable header
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"000210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"00"
+    assert doc_enc["h"]["data"] == b""
+    assert doc_dec["h"] == ""
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set([])
+    assert doc_dec["bm"] == set([])
+
+
+def test_variable_header_ebcdic_over_max():
+    """
+    EBCDIC variable header is required and over max provided
+    """
+    spec["h"]["data_enc"] = "cp500"
+    spec["h"]["len_enc"] = "cp500"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    doc_dec = {"h": "header1", "t": "0210", "bm": set()}
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Field data is 7 bytes, larger than maximum 6: field h",
+    ):
+        iso8583.encode(doc_dec, spec=spec)
+
+
+def test_variable_header_ebcdic_present():
+    """
+    EBCDIC variable header is required and provided
+    """
+    spec["h"]["data_enc"] = "cp500"
+    spec["h"]["len_enc"] = "cp500"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "header", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"\xf0\xf6\x88\x85\x81\x84\x85\x990210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"\xf0\xf6"
+    assert doc_enc["h"]["data"] == b"\x88\x85\x81\x84\x85\x99"
+    assert doc_dec["h"] == "header"
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set([])
+    assert doc_dec["bm"] == set([])
+
+
+def test_variable_header_ebcdic_present_zero_legnth():
+    """
+    EBCDIC zero-length variable header
+    """
+    spec["h"]["data_enc"] = "cp500"
+    spec["h"]["len_enc"] = "cp500"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"\xf0\xf00210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"\xf0\xf0"
+    assert doc_enc["h"]["data"] == b""
+    assert doc_dec["h"] == ""
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set([])
+    assert doc_dec["bm"] == set([])
+
+
+def test_variable_header_bdc_over_max():
+    """
+    BDC variable header is required and over max is provided
+    """
+    spec["h"]["data_enc"] = "b"
+    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 2
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "abcdef", "t": "0210", "bm": set()}
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Field data is 3 bytes, larger than maximum 2: field h",
+    ):
+        iso8583.encode(doc_dec, spec=spec)
+
+
+def test_variable_header_bdc_odd():
+    """
+    BDC variable header is required and odd length is provided
+    CPython and PyPy throw differently worded exception
+    CPython: non-hexadecimal number found in fromhex() arg at position 5
+    PyPy:    non-hexadecimal number found in fromhex() arg at position 4
+    """
+    spec["h"]["data_enc"] = "b"
+    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "abcde", "t": "0210", "bm": set()}
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Failed to encode .non-hexadecimal number found in fromhex.. arg at position 4|5.: field h",
+    ):
+        iso8583.encode(doc_dec, spec=spec)
+
+
+def test_variable_header_bdc_ascii_length():
+    """
+    BDC variable header
+    The length is in ASCII.
+    """
+    spec["h"]["data_enc"] = "b"
+    spec["h"]["len_enc"] = "ascii"
+    spec["h"]["len_type"] = 3
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "abcd", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"002\xab\xcd0210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"002"
+    assert doc_enc["h"]["data"] == b"\xab\xcd"
+    assert doc_dec["h"] == "abcd"
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set()
+    assert doc_dec["bm"] == set()
+
+
+def test_variable_header_bdc_ebcdic_length():
+    """
+    BDC variable header is required and provided
+    The length is in EBCDIC.
+    """
+    spec["h"]["data_enc"] = "b"
+    spec["h"]["len_enc"] = "cp500"
+    spec["h"]["len_type"] = 3
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "abcd", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"\xf0\xf0\xf2\xab\xcd0210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"\xf0\xf0\xf2"
+    assert doc_enc["h"]["data"] == b"\xab\xcd"
+    assert doc_dec["h"] == "abcd"
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set()
+    assert doc_dec["bm"] == set()
+
+
+def test_variable_header_bcd_present():
+    """
+    BCD variable header is required and provided
+    """
+    spec["h"]["data_enc"] = "b"
+    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "abcd", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"\x00\x02\xab\xcd0210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"\x00\x02"
+    assert doc_enc["h"]["data"] == b"\xab\xcd"
+    assert doc_dec["h"] == "abcd"
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set()
+    assert doc_dec["bm"] == set()
+
+
+def test_variable_header_bcd_present_zero_length():
+    """
+    BCD zero-length variable header is required and provided
+    """
+    spec["h"]["data_enc"] = "b"
+    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "", "t": "0210", "bm": set()}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"\x00\x000210\x00\x00\x00\x00\x00\x00\x00\x00"
+
+    assert doc_enc["h"]["len"] == b"\x00\x00"
+    assert doc_enc["h"]["data"] == b""
+    assert doc_dec["h"] == ""
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "0000000000000000"
+
+    assert doc_enc["bm"] == set()
+    assert doc_dec["bm"] == set()
+
+
+def test_variable_header_incorrect_encoding():
+    """
+    variable header is required and provided.
+    However, the spec encoding is not correct for length
+    """
+    spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_enc"] = "invalid"
+    spec["h"]["len_type"] = 2
+    spec["h"]["max_len"] = 6
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+
+    doc_dec = {"h": "abcd", "t": "0210", "bm": set()}
+
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Failed to encode length .unknown encoding: invalid.: field h",
+    ):
+        iso8583.encode(doc_dec, spec=spec)
+
+
 def test_type_no_key():
     """
     Message type is required and key is not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1337,6 +1720,7 @@ def test_type_ascii_absent():
     ASCII message type is required and not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1354,6 +1738,7 @@ def test_type_ascii_partial():
     ASCII message type is required and partial is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1371,6 +1756,7 @@ def test_type_ascii_over_max():
     ASCII message type is required and over max is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1392,6 +1778,7 @@ def test_type_ascii_incorrect_data():
     PyPy:    'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1415,6 +1802,7 @@ def test_type_ascii_present():
     ASCII message type is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1446,6 +1834,7 @@ def test_type_ebcdic_absent():
     EBCDIC message type is required and not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "cp500"
     spec["p"]["data_enc"] = "b"
@@ -1463,6 +1852,7 @@ def test_type_ebcdic_partial():
     EBCDIC message type is required and partial provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "cp500"
     spec["p"]["data_enc"] = "b"
@@ -1480,6 +1870,7 @@ def test_type_ebcdic_over_max():
     EBCDIC message type is required and over max provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "cp500"
     spec["p"]["data_enc"] = "b"
@@ -1497,6 +1888,7 @@ def test_type_ebcdic_present():
     EBCDIC message type is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "cp500"
     spec["p"]["data_enc"] = "b"
@@ -1528,6 +1920,7 @@ def test_type_bdc_absent():
     BDC message type is required and not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "b"
@@ -1545,6 +1938,7 @@ def test_type_bdc_partial():
     BDC message type is required and partial is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "b"
@@ -1562,6 +1956,7 @@ def test_type_bdc_over_max():
     BDC message type is required and over max is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "b"
@@ -1582,6 +1977,7 @@ def test_type_bdc_odd():
     PyPy:    non-hexadecimal number found in fromhex() arg at position 2
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "b"
@@ -1601,6 +1997,7 @@ def test_type_bdc_non_hex():
     However, the data is not hex
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "b"
@@ -1619,6 +2016,7 @@ def test_type_bcd_present():
     BCD message type is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "b"
     spec["p"]["data_enc"] = "b"
@@ -1651,6 +2049,7 @@ def test_type_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "invalid"
     spec["p"]["data_enc"] = "b"
@@ -1669,6 +2068,7 @@ def test_bitmap_no_key():
     ASCII fixed field is required and "bm" key is not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1686,6 +2086,7 @@ def test_bitmap_range():
     ISO8583 bitmaps must be between 1 and 128.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1726,6 +2127,7 @@ def test_bitmap_remove_secondary():
     If 65-128 fields are not in bitmap then remove field 1.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1772,6 +2174,7 @@ def test_bitmap_add_secondary():
     If one of 65-128 fields are in bitmap then add field 1.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -1825,6 +2228,7 @@ def test_field_no_key():
     Field is required and not key provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1855,6 +2259,7 @@ def test_primary_bitmap_incorrect_encoding():
     Incorrect encoding specified for primary bitmap
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "invalid"
@@ -1875,6 +2280,7 @@ def test_secondary_bitmap_incorrect_encoding():
     Incorrect encoding specified for secondary bitmap
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1896,6 +2302,7 @@ def test_ascii_bitmaps():
     Field is required and not key provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1937,6 +2344,7 @@ def test_ebcidic_bitmaps():
     Field is required and not key provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "cp500"
@@ -1989,6 +2397,7 @@ def test_bcd_bitmaps():
     Field is required and not key provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2033,6 +2442,7 @@ def test_fixed_field_ascii_absent():
     ASCII fixed field is required and not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2053,6 +2463,7 @@ def test_fixed_field_ascii_partial():
     ASCII fixed field is required and partially provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2073,6 +2484,7 @@ def test_fixed_field_ascii_over_max():
     ASCII fixed field is required and over max provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2097,6 +2509,7 @@ def test_fixed_field_ascii_incorrect_data():
     PyPy:    'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2123,6 +2536,7 @@ def test_fixed_field_ascii_present():
     ASCII fixed field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2162,6 +2576,7 @@ def test_fixed_field_ascii_present_zero_legnth():
     This is pointless but should work.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2200,6 +2615,7 @@ def test_fixed_field_ebcdic_absent():
     EBCDIC fixed field is required and not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2220,6 +2636,7 @@ def test_fixed_field_ebcdic_partial():
     EBCDIC fixed field is required and partially provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2240,6 +2657,7 @@ def test_fixed_field_ebcdic_over_max():
     EBCDIC fixed field is required and over max provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2260,6 +2678,7 @@ def test_fixed_field_ebcdic_present():
     EBCDIC fixed field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2299,6 +2718,7 @@ def test_fixed_field_ebcdic_present_zero_legnth():
     This is pointless but should work.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2337,6 +2757,7 @@ def test_fixed_field_bdc_absent():
     BDC fixed field is required and not provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2357,6 +2778,7 @@ def test_fixed_field_bdc_partial():
     BDC fixed field is required and partial is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2377,6 +2799,7 @@ def test_fixed_field_bdc_over_max():
     BDC fixed field is required and over max is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2400,6 +2823,7 @@ def test_fixed_field_bdc_odd():
     PyPy:    non-hexadecimal number found in fromhex() arg at position 4
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2422,6 +2846,7 @@ def test_fixed_field_bdc_non_hex():
     However, the data is not hex
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2443,6 +2868,7 @@ def test_fixed_field_bcd_present():
     BCD fixed field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2482,6 +2908,7 @@ def test_fixed_field_bcd_present_zero_length():
     This is pointless but should work.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2521,6 +2948,7 @@ def test_fixed_field_incorrect_encoding():
     However, the spec encoding is not correct
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2542,6 +2970,7 @@ def test_variable_field_ascii_over_max():
     ASCII variable field is required and over max provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2564,6 +2993,7 @@ def test_variable_field_ascii_present():
     ASCII variable field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2603,6 +3033,7 @@ def test_variable_field_ascii_present_zero_legnth():
     ASCII zero-length variable field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2642,6 +3073,7 @@ def test_variable_field_ebcdic_over_max():
     EBCDIC variable field is required and over max provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -2664,6 +3096,7 @@ def test_variable_field_ebcdic_present():
     EBCDIC variable field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2703,6 +3136,7 @@ def test_variable_field_ebcdic_present_zero_legnth():
     EBCDIC zero-length variable field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2742,6 +3176,7 @@ def test_variable_field_bdc_over_max():
     BDC variable field is required and over max is provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2767,6 +3202,7 @@ def test_variable_field_bdc_odd():
     PyPy:    non-hexadecimal number found in fromhex() arg at position 4
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2790,6 +3226,7 @@ def test_variable_field_bdc_ascii_length():
     The length is in ASCII.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2827,9 +3264,10 @@ def test_variable_field_bdc_ascii_length():
 def test_variable_field_bdc_ebcdic_length():
     """
     BDC variable field is required and provided
-    The length is in WBCDIC.
+    The length is in EBCDIC.
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2869,6 +3307,7 @@ def test_variable_field_bcd_present():
     BCD variable field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2908,6 +3347,7 @@ def test_variable_field_bcd_present_zero_length():
     BCD zero-length variable field is required and provided
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
@@ -2948,6 +3388,7 @@ def test_variable_field_incorrect_encoding():
     However, the spec encoding is not correct for length
     """
     spec["h"]["data_enc"] = "ascii"
+    spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
