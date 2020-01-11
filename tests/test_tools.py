@@ -983,7 +983,18 @@ def test_del_field():
 
 def test_pp(capsys):
     spec["h"]["max_len"] = 6
+    spec["h"]["len_type"] = 0
     doc_dec = {}
+    iso8583.pp(doc_dec, spec)
+
+    captured = capsys.readouterr()
+
+    r = captured.out.split("\n")
+
+    assert r[0] == "'bm'  Enabled Fields                      : []"
+    assert r[1] == ""
+    assert len(r) == 2
+
     iso8583.add_field(doc_dec, "h", "header")
     iso8583.add_field(doc_dec, "t", "0200")
     iso8583.add_field(doc_dec, "2", "12345678")
@@ -1008,8 +1019,56 @@ def test_pp(capsys):
     assert len(r) == 9
 
 
+def test_pp_variable_header(capsys):
+    spec["h"]["max_len"] = 6
+    spec["h"]["len_type"] = 2
+    doc_dec = {}
+    iso8583.add_field(doc_dec, "h", "header")
+    iso8583.add_field(doc_dec, "t", "0200")
+    iso8583.add_field(doc_dec, "2", "12345678")
+    iso8583.add_field(doc_dec, "44", "123")
+    iso8583.add_field(doc_dec, "123", "123")
+    iso8583.encode(doc_dec, spec)
+    iso8583.pp(doc_dec, spec)
+
+    captured = capsys.readouterr()
+
+    r = captured.out.split("\n")
+
+    assert r[0] == "'bm'  Enabled Fields                      : [1, 2, 44, 123]"
+    assert r[1] == "'h'   Message Header                      : 06 [header]"
+    assert r[2] == "'t'   Message Type                        : [0200]"
+    assert r[3] == "'p'   Bitmap, Primary                     : [C000000000100000]"
+    assert r[4] == "'1'   Bitmap, Secondary                   : [0000000000000020]"
+    assert r[5] == "'2'   Primary Account Number (PAN)        : 08 [12345678]"
+    assert r[6] == "'44'  Additional Response Data            : 03 [123]"
+    assert r[7] == "'123' Reserved for Private Use            : 003 [123]"
+    assert r[8] == ""
+    assert len(r) == 9
+
+    iso8583.add_field(doc_dec, "h", "")
+    iso8583.encode(doc_dec, spec)
+    iso8583.pp(doc_dec, spec)
+
+    captured = capsys.readouterr()
+
+    r = captured.out.split("\n")
+
+    assert r[0] == "'bm'  Enabled Fields                      : [1, 2, 44, 123]"
+    assert r[1] == "'h'   Message Header                      : 00 []"
+    assert r[2] == "'t'   Message Type                        : [0200]"
+    assert r[3] == "'p'   Bitmap, Primary                     : [C000000000100000]"
+    assert r[4] == "'1'   Bitmap, Secondary                   : [0000000000000020]"
+    assert r[5] == "'2'   Primary Account Number (PAN)        : 08 [12345678]"
+    assert r[6] == "'44'  Additional Response Data            : 03 [123]"
+    assert r[7] == "'123' Reserved for Private Use            : 003 [123]"
+    assert r[8] == ""
+    assert len(r) == 9
+
+
 def test_pp_stream():
     spec["h"]["max_len"] = 6
+    spec["h"]["len_type"] = 0
     doc_dec = {}
     iso8583.add_field(doc_dec, "h", "header")
     iso8583.add_field(doc_dec, "t", "0200")
@@ -1036,6 +1095,7 @@ def test_pp_stream():
 
 def test_pp_optional_fields(capsys):
     spec["h"]["max_len"] = 6
+    spec["h"]["len_type"] = 0
 
     # Empty
     doc_dec = {}
@@ -1111,6 +1171,7 @@ def test_pp_optional_fields(capsys):
 
 def test_pp_no_desc(capsys):
     spec["h"]["max_len"] = 0
+    spec["h"]["len_type"] = 0
     doc_dec = {}
     iso8583.add_field(doc_dec, "t", "0200")
     iso8583.add_field(doc_dec, "2", "12345678")
