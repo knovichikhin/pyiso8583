@@ -7,7 +7,7 @@ electronic transactions initiated by cardholders using payment cards.
 ``bytearray`` instance containing ISO8583 data and a Python ``dict``.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __all__ = [
     "add_field",
     "del_field",
@@ -19,6 +19,6 @@ __all__ = [
 ]
 __author__ = "Konstantin Novichikhin <konstantin.novichikhin@gmail.com>"
 
-from iso8583.decoder import decode, DecodeError
-from iso8583.encoder import encode, EncodeError
+from iso8583.decoder import DecodeError, decode
+from iso8583.encoder import EncodeError, encode
 from iso8583.tools import add_field, del_field, pp

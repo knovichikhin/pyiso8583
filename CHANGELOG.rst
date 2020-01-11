@@ -1,3 +1,9 @@
+1.0.2 - 2020-01-11
+------------------
+- Optional proprietary header can now be parsed
+  using standard field settings
+- Documentation improvements
+
 1.0.1 - 2019-11-11
 ------------------
 - iso8583.decode and iso8583.decode now return a tuple
