@@ -3,12 +3,12 @@ from typing import IO, AnyStr, Any
 
 
 def add_field(doc_dec: dict, field: str, val: str) -> None:
-    r"""Add or override field and its value to ISO8583 dictionary.
+    r"""Add or override field and its value in ISO8583 dictionary.
 
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     field : str
         Field key to be added
     val : str
@@ -17,10 +17,10 @@ def add_field(doc_dec: dict, field: str, val: str) -> None:
     Examples
     --------
     >>> import iso8583
-    >>> from iso8583.specs import default
-    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840"
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
-    >>> iso8583.pp(doc_dec, spec=default)
+    >>> from iso8583.specs import default_ascii as spec
+    >>> s = b"02004010100000000000161234567890123456123456840"
+    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
+    >>> iso8583.pp(doc_dec, spec)
     'bm'  Enabled Fields                      : [2, 12, 20]
     't'   Message Type                        : [0200]
     'p'   Bitmap, Primary                     : [4010100000000000]
@@ -29,8 +29,8 @@ def add_field(doc_dec: dict, field: str, val: str) -> None:
     '20'  PAN Country Code                    : [840]
     >>> iso8583.add_field(doc_dec, "t", "0210")
     >>> iso8583.add_field(doc_dec, "39", "00")
-    >>> s, doc_enc = iso8583.encode(doc_dec, spec=default)
-    >>> iso8583.pp(doc_dec, spec=default)
+    >>> s, doc_enc = iso8583.encode(doc_dec, spec)
+    >>> iso8583.pp(doc_dec, spec)
     'bm'  Enabled Fields                      : [2, 12, 20, 39]
     't'   Message Type                        : [0210]
     'p'   Bitmap, Primary                     : [4010100002000000]
@@ -54,7 +54,7 @@ def del_field(doc_dec: dict, field: str) -> Any:
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     field : int or str
         Field key to be deleted
 
@@ -66,10 +66,10 @@ def del_field(doc_dec: dict, field: str) -> Any:
     Examples
     --------
     >>> import iso8583
-    >>> from iso8583.specs import default
-    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840"
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
-    >>> iso8583.pp(doc_dec, spec=default)
+    >>> from iso8583.specs import default_ascii as spec
+    >>> s = b"02004010100000000000161234567890123456123456840"
+    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
+    >>> iso8583.pp(doc_dec, spec)
     'bm'  Enabled Fields                      : [2, 12, 20]
     't'   Message Type                        : [0200]
     'p'   Bitmap, Primary                     : [4010100000000000]
@@ -78,8 +78,8 @@ def del_field(doc_dec: dict, field: str) -> Any:
     '20'  PAN Country Code                    : [840]
     >>> iso8583.del_field(doc_dec, "20")
     '840'
-    >>> s, doc_enc = iso8583.encode(doc_dec, spec=default)
-    >>> iso8583.pp(doc_dec, spec=default)
+    >>> s, doc_enc = iso8583.encode(doc_dec, spec)
+    >>> iso8583.pp(doc_dec, spec)
     'bm'  Enabled Fields                      : [2, 12]
     't'   Message Type                        : [0200]
     'p'   Bitmap, Primary                     : [4010000000000000]
@@ -103,7 +103,7 @@ def pp(
     Parameters
     ----------
     doc_dec : dict
-        Decoded Python representation of ISO8583 bytes instance
+        Dict containing decoded ISO8583 data
     spec : dict
         A Python dict defining ISO8583 specification.
         See iso8583.specs module for examples.
@@ -124,10 +124,10 @@ def pp(
     Examples
     --------
     >>> import iso8583
-    >>> from iso8583.specs import default
-    >>> s = b"0200\x40\x10\x10\x00\x00\x00\x00\x00161234567890123456123456840"
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec=default)
-    >>> iso8583.pp(doc_dec, spec=default)
+    >>> from iso8583.specs import default_ascii as spec
+    >>> s = b"02004010100000000000161234567890123456123456840"
+    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
+    >>> iso8583.pp(doc_dec, spec)
     'bm'  Enabled Fields                      : [2, 12, 20]
     't'   Message Type                        : [0200]
     'p'   Bitmap, Primary                     : [4010100000000000]
