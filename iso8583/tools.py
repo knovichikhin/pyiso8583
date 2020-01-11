@@ -138,59 +138,50 @@ def pp(
     if stream is None:
         stream = _sys.stdout
 
-    if "bm" not in doc_dec:
-        doc_dec["bm"] = set()
+    try:
+        bm = doc_dec["bm"]
+    except KeyError:
+        bm = set()
 
     stream.write(
-        "'bm'  {desc: <{desc_width}}: {val}\n".format(
+        "{index:5s} {desc: <{desc_width}}: {val}\n".format(
+            index=repr("bm"),
             desc="Enabled Fields"[:desc_width],
             desc_width=desc_width,
-            val=sorted(doc_dec["bm"]),
+            val=sorted(bm),
         )
     )
 
     if "h" in doc_dec:
-        stream.write(
-            "'h'   {desc: <{desc_width}}: [{val}]\n".format(
-                desc=spec["h"]["desc"][:desc_width],
-                desc_width=desc_width,
-                val=doc_dec["h"],
-            )
-        )
+        _pp_field(doc_dec, spec, desc_width, stream, "h")
 
     if "t" in doc_dec:
-        stream.write(
-            "'t'   {desc: <{desc_width}}: [{val}]\n".format(
-                desc=spec["t"]["desc"][:desc_width],
-                desc_width=desc_width,
-                val=doc_dec["t"],
-            )
-        )
+        _pp_field(doc_dec, spec, desc_width, stream, "t")
 
     if "p" in doc_dec:
-        stream.write(
-            "'p'   {desc: <{desc_width}}: [{val}]\n".format(
-                desc=spec["p"]["desc"][:desc_width],
-                desc_width=desc_width,
-                val=doc_dec["p"],
-            )
-        )
+        _pp_field(doc_dec, spec, desc_width, stream, "p")
 
     # Sorted list of field numbers as strings
-    for f_id in [str(i) for i in sorted(doc_dec["bm"])]:
+    for f_id in [str(i) for i in sorted(bm)]:
+        _pp_field(doc_dec, spec, desc_width, stream, f_id)
+
+
+def _pp_field(
+    doc_dec: dict, spec: dict, desc_width: int, stream: IO[AnyStr], f_id: str
+) -> None:
+    stream.write(
+        "{index:5s} {desc: <{desc_width}}: ".format(
+            index=repr(f_id),
+            desc=spec[f_id]["desc"][:desc_width],
+            desc_width=desc_width,
+        )
+    )
+
+    if spec[f_id]["len_type"] > 0:
         stream.write(
-            "{index:5s} {desc: <{desc_width}}: ".format(
-                index=repr(f_id),
-                desc=spec[f_id]["desc"][:desc_width],
-                desc_width=desc_width,
+            "{length:0{length_type}d} ".format(
+                length=len(doc_dec[f_id]), length_type=spec[f_id]["len_type"]
             )
         )
 
-        if spec[f_id]["len_type"] > 0:
-            stream.write(
-                "{length:0{length_type}d} ".format(
-                    length=len(doc_dec[f_id]), length_type=spec[f_id]["len_type"]
-                )
-            )
-
-        stream.write("[{val}]\n".format(val=doc_dec[f_id]))
+    stream.write("[{val}]\n".format(val=doc_dec[f_id]))
