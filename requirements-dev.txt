@@ -1,0 +1,10 @@
+black
+flake8
+pytest
+pytest-cov
+coverage
+codecov
+twine
+wheel
+sphinx
+sphinx-rtd-theme
