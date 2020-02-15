@@ -1,5 +1,5 @@
 import sys as _sys
-from typing import IO, AnyStr, Any
+from typing import Optional, TextIO
 
 
 def add_field(doc_dec: dict, field: str, val: str) -> None:
@@ -48,7 +48,7 @@ def add_field(doc_dec: dict, field: str, val: str) -> None:
     doc_dec[field] = val
 
 
-def del_field(doc_dec: dict, field: str) -> Any:
+def del_field(doc_dec: dict, field: str) -> Optional[str]:
     r"""Delete field from ISO8583 dictionary.
 
     Parameters
@@ -96,7 +96,7 @@ def del_field(doc_dec: dict, field: str) -> Any:
 
 
 def pp(
-    doc_dec: dict, spec: dict, desc_width: int = 36, stream: IO[AnyStr] = None
+    doc_dec: dict, spec: dict, desc_width: int = 36, stream: Optional[TextIO] = None
 ) -> None:
     r"""Pretty Print Python dict containing decoded ISO8583 data.
 
@@ -167,7 +167,7 @@ def pp(
 
 
 def _pp_field(
-    doc_dec: dict, spec: dict, desc_width: int, stream: IO[AnyStr], f_id: str
+    doc_dec: dict, spec: dict, desc_width: int, stream: TextIO, f_id: str
 ) -> None:
     stream.write(
         "{index:5s} {desc: <{desc_width}}: ".format(

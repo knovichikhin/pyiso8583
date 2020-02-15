@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 __all__ = ["decode", "DecodeError"]
 
@@ -25,7 +25,7 @@ class DecodeError(ValueError):
     def __init__(
         self,
         msg: str,
-        s: bytes or bytearray,
+        s: Union[bytes, bytearray],
         doc_dec: dict,
         doc_enc: dict,
         pos: int,
@@ -47,7 +47,7 @@ class DecodeError(ValueError):
         )
 
 
-def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
+def decode(s: Union[bytes, bytearray], spec: dict) -> Tuple[dict, dict]:
     r"""Deserialize a bytes or bytearray instance containing
     ISO8583 data to a Python dict.
 
@@ -93,8 +93,8 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
             f"the ISO8583 data must be bytes or bytearray, not {s.__class__.__name__}"
         )
 
-    doc_dec = {"bm": set()}
-    doc_enc = {"bm": set()}
+    doc_dec: dict = {"bm": set()}
+    doc_enc: dict = {"bm": set()}
     idx = 0
 
     idx = _decode_header(s, doc_dec, doc_enc, idx, spec)
@@ -126,7 +126,7 @@ def decode(s: bytes or bytearray, spec: dict) -> Tuple[dict, dict]:
 
 
 def _decode_header(
-    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+    s: Union[bytes, bytearray], doc_dec: dict, doc_enc: dict, idx: int, spec: dict
 ) -> int:
     r"""Decode ISO8583 header data if present.
 
@@ -163,7 +163,7 @@ def _decode_header(
 
 
 def _decode_type(
-    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+    s: Union[bytes, bytearray], doc_dec: dict, doc_enc: dict, idx: int, spec: dict
 ) -> int:
     r"""Decode ISO8583 message type.
 
@@ -225,7 +225,7 @@ def _decode_type(
 
 
 def _decode_bitmaps(
-    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+    s: Union[bytes, bytearray], doc_dec: dict, doc_enc: dict, idx: int, spec: dict
 ) -> int:
     r"""Decode ISO8583 primary and secondary bitmaps.
 
@@ -347,7 +347,12 @@ def _decode_bitmaps(
 
 
 def _decode_field(
-    s: bytes or bytearray, doc_dec: dict, doc_enc: dict, idx: int, f_id: str, spec: dict
+    s: Union[bytes, bytearray],
+    doc_dec: dict,
+    doc_enc: dict,
+    idx: int,
+    f_id: str,
+    spec: dict,
 ) -> int:
     r"""Decode ISO8583 individual fields.
 

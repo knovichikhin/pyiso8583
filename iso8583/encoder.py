@@ -74,7 +74,7 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
         )
 
     s = bytearray()
-    doc_enc = {}
+    doc_enc: dict = {}
     s += _encode_header(doc_dec, doc_enc, spec)
     s += _encode_type(doc_dec, doc_enc, spec)
     s += _encode_bitmaps(doc_dec, doc_enc, spec)
