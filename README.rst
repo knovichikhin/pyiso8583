@@ -1,5 +1,5 @@
-iso8583
--------
+iso8583 - a Python package for parsing ISO8583 data
+----------------------------------------------------
 
 |pypi| |docs| |coverage|
 
@@ -28,7 +28,8 @@ Install::
 Encoding & Decoding
 -------------------
 
-Decode raw iso8583 message using `iso8583.decode <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.decode>`_.
+Use `iso8583.decode <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.decode>`_
+to decode raw ISO8583 message.
 It returns two dictionaries: one with decoded data and one with encoded data.
 
 .. code-block:: python
@@ -36,13 +37,12 @@ It returns two dictionaries: one with decoded data and one with encoded data.
     >>> import pprint
     >>> import iso8583
     >>> from iso8583.specs import default_ascii as spec
-    >>> s = b'02004000000000000000101234567890'
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
-    >>> pprint.pp(doc_dec) # Decoded data
-    {'bm': {2}, 't': '0200', 'p': '4000000000000000', '2': '1234567890'}
-    >>> pprint.pp(doc_enc) # Broken down encoded data
-    {'bm': {2},
-     't': {'len': b'', 'data': b'0200'},
+    >>> encoded_raw = b'02004000000000000000101234567890'
+    >>> decoded, encoded = iso8583.decode(encoded_raw, spec)
+    >>> pprint.pp(decoded)
+    {'t': '0200', 'p': '4000000000000000', '2': '1234567890'}
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
      'p': {'len': b'', 'data': b'4000000000000000'},
      '2': {'len': b'10', 'data': b'1234567890'}}
 
@@ -52,31 +52,47 @@ Remove field 2 (PAN). And add field 39 (Response Code).
 
 .. code-block:: python
 
-    >>> doc_dec['t'] = '0210'
-    >>> doc_dec['bm'].discard(2)
-    >>> doc_dec['bm'].add(39)
-    >>> doc_dec['39'] = '05'
+    >>> decoded['t'] = '0210'
+    >>> decoded.pop('2', None)
+    '1234567890'
+    >>> decoded['39'] = '05'
 
-Encode updated ISO8583 message using `iso8583.encode <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.encode>`_.
+Use `iso8583.encode <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.encode>`_
+to encode updated ISO8583 message.
 It returns a raw ISO8583 message and a dictionary with encoded data.
 
 .. code-block:: python
 
-    >>> s, doc_enc = iso8583.encode(doc_dec, spec)
-    >>> s
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
     bytearray(b'0210000000000200000005')
-    >>> pprint.pp(doc_enc)
+    >>> pprint.pp(decoded)
+    {'t': '0210', 'p': '0000000002000000', '39': '05'}
+    >>> pprint.pp(encoded)
     {'t': {'len': b'', 'data': b'0210'},
-     'bm': {39},
      'p': {'len': b'', 'data': b'0000000002000000'},
      '39': {'len': b'', 'data': b'05'}}
 
-Optional Helper Functions
--------------------------
+Pretty Print Messages
+---------------------
 
-    * Pretty print a decoded dictionary using `iso8583.pp <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.pp>`_
-    * Add/update fields in a decoded dictionary using `iso8583.add_field <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.add_field>`_
-    * Remove fields in a decoded dictionary using `iso8583.del_field <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.del_field>`_
+Use `iso8583.pp <https://pyiso8583.readthedocs.io/en/latest/functions.html#iso8583.pp>`_
+to pretty print ISO8583 message.
+
+.. code-block:: python
+
+    >>> import iso8583
+    >>> from iso8583.specs import default_ascii as spec
+    >>> encoded_raw = b'02004000000000000000101234567890'
+    >>> decoded, encoded = iso8583.decode(encoded_raw, spec)
+    >>> iso8583.pp(decoded, spec)
+    t   Message Type                  : '0200'
+    p   Bitmap, Primary               : '4000000000000000'
+    2   Primary Account Number (PAN)  : '1234567890'
+    >>> iso8583.pp(encoded, spec)
+    t   Message Type                  : b'0200'
+    p   Bitmap, Primary               : b'4000000000000000'
+    2   Primary Account Number (PAN)  : b'10' b'1234567890'
 
 Contribute
 ----------

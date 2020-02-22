@@ -32,5 +32,5 @@ if __name__ == "__main__":
         packages=find_packages(exclude=["tests"]),
         classifiers=classifiers,
         python_requires=">=3.6",
-        keywords="iso8583 8583",
+        keywords="iso8583 8583 banking protocol library",
     )

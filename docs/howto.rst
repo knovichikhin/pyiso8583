@@ -1,8 +1,12 @@
 =======================================================
-iso8583 -- How-To
+How-To
 =======================================================
 
-.. contents:: Table of Contents
+.. note:: The examples on this page use :meth:`pprint.pp` which is available starting from Python 3.8.
+          Alternativelly, it's also possible to achive the same result using
+          :meth:`pprint.pprint` with ``sort_dicts=False`` starting from Python 3.7.
+          Earlier versions of Python 3 can use :meth:`pprint.pprint` but
+          it will sort the keys.
 
 Create Own/Proprietary Specifications
 -------------------------------------
@@ -15,105 +19,210 @@ Refer to :mod:`iso8583.specs` for configuration details.
 Create ISO8583 Message
 ----------------------
 :mod:`iso8583` converts a Python ``dict`` into a ``bytearray``.
-A the minimum the ``dict`` must have
+A ``dict`` must consits of ``str`` keys and ``str`` values.
 
-- ``'t'`` key containing message type, e.g. ``'0200'``.
-- ``'bm'`` key containing fields numbers to be added to the message.
-- ``'1'`` .. ``'128'`` key with data for each field specified in ``'bm'`` set.
-
-.. code-block:: python
-
-    >>> import iso8583
-    >>> from iso8583.specs import default_ascii as spec
-    >>> doc_dec = {
-    ...     't': '0200',
-    ...     'bm': set([3]),
-    ...     '3': '111111'}
-    >>> raw, doc_enc = iso8583.encode(doc_dec, spec)
-    >>> raw
-    bytearray(b'02002000000000000000111111')
-
-Let's add another field.
-
-.. code-block:: python
-
-    >>> doc_dec['bm'].add(12)
-    >>> doc_dec['12'] = '122530'
-    >>> raw, doc_enc = iso8583.encode(doc_dec, spec)
-    >>> raw
-    bytearray(b'02002010000000000000111111122530')
-
-Add Secondary Bitmap
---------------------
-You don't need to explicitly add secondary bitmap.
-It's auto generated  when at least one 65-128 field is present.
+A the minimum it must have key ``'t'`` which contains message
+type, e.g. ``'0200'``.
 
 .. code-block:: python
 
     >>> import pprint
     >>> import iso8583
     >>> from iso8583.specs import default_ascii as spec
-    >>> doc_dec = {
-    ...     't': '0200',
-    ...     'bm': set([102]),
-    ...     '102': '111111'}
-    >>> raw, doc_enc = iso8583.encode(doc_dec, spec)
-    >>> raw
-    bytearray(b'02008000000000000000000000000400000006111111')
-    >>> pprint.pp(doc_enc)
+    >>> decoded = {'t': '0200'}
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
+    bytearray(b'02000000000000000000')
+    >>> pprint.pp(encoded)
     {'t': {'len': b'', 'data': b'0200'},
-     'bm': {1, 102},
+     'p': {'len': b'', 'data': b'0000000000000000'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200', 'p': '0000000000000000'}
+
+Note that primary bitmap was generated automatically.
+
+An ISO8583 message without any fields is not very useful.
+To add another field to the message simply add ``'2'-'128'``
+keys with ``str`` data.
+
+.. code-block:: python
+
+    >>> decoded['2'] = 'cardholder PAN'
+    >>> decoded['3'] = '111111'
+    >>> decoded['21'] = '021'
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
+    bytearray(b'0200600008000000000014cardholder PAN111111021')
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
+     'p': {'len': b'', 'data': b'6000080000000000'},
+     '2': {'len': b'14', 'data': b'cardholder PAN'},
+     '3': {'len': b'', 'data': b'111111'},
+     '21': {'len': b'', 'data': b'021'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200',
+     'p': '6000080000000000',
+     '2': 'cardholder PAN',
+     '3': '111111',
+     '21': '021'}
+
+Let's remove some fields.
+
+.. code-block:: python
+
+    >>> decoded.pop('2', None)
+    'cardholder PAN'
+    >>> decoded.pop('3', None)
+    '111111'
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
+    bytearray(b'02000000080000000000021')
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
+     'p': {'len': b'', 'data': b'0000080000000000'},
+     '21': {'len': b'', 'data': b'021'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200', 'p': '0000080000000000', '21': '021'}
+
+Add Secondary Bitmap
+--------------------
+There is no need to explicitly add or remove secondary bitmap.
+It's auto generated when at least one ``'65'-'128'``
+fields is present.
+
+.. code-block:: python
+
+    >>> import pprint
+    >>> import iso8583
+    >>> from iso8583.specs import default_ascii as spec
+    >>> decoded = {
+    ...     't': '0200',
+    ...     '102': '111111'}
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
+    bytearray(b'02008000000000000000000000000400000006111111')
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
      'p': {'len': b'', 'data': b'8000000000000000'},
      '1': {'len': b'', 'data': b'0000000004000000'},
      '102': {'len': b'06', 'data': b'111111'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200', '102': '111111', 'p': '8000000000000000', '1': '0000000004000000'}
+
+Even if secondary (or primary) bitmap is
+specified it's overwritten with correct value.
+
+.. code-block:: python
+
+    >>> decoded = {
+    ...     't': '0200',
+    ...     'p': 'spam',
+    ...     '1': 'eggs',
+    ...     '102': '111111'}
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
+    bytearray(b'02008000000000000000000000000400000006111111')
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
+     'p': {'len': b'', 'data': b'8000000000000000'},
+     '1': {'len': b'', 'data': b'0000000004000000'},
+     '102': {'len': b'06', 'data': b'111111'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200', 'p': '8000000000000000', '102': '111111', '1': '0000000004000000'}
+
+Secondary bitmap is removed if it's not required.
+
+.. code-block:: python
+
+    >>> decoded = {
+    ...     't': '0200',
+    ...     'p': 'spam',
+    ...     '1': 'eggs',
+    ...     '21': '051'}
+    >>> encoded_raw, encoded = iso8583.encode(decoded, spec)
+    >>> encoded_raw
+    bytearray(b'02000000080000000000051')
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
+     'p': {'len': b'', 'data': b'0000080000000000'},
+     '21': {'len': b'', 'data': b'051'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200', 'p': '0000080000000000', '21': '051'}
 
 Check for Mandatory Fields
 --------------------------
 Many ISO8583 implementations need to check if all mandatory fields
-are received. It's easy to do this using ``'bm'`` :meth:`set.issuperset`.
+are received. It's easy to do this using :meth:`all` (`docs`_).
+
+.. _docs: https://docs.python.org/3/library/functions.html#all
 
 .. code-block:: python
 
+    >>> import pprint
     >>> import iso8583
     >>> from iso8583.specs import default_ascii as spec
-    >>> s = b'02004000000000000000101234567890'
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
-    >>> doc_dec['bm']
-    {2}
-    >>> mandatory_fields = set([2,3])
-    >>> doc_dec['bm'].issuperset(mandatory_fields)
+    >>> encoded_raw = b'02008000000000000000000000000400000006111111'
+    >>> decoded, encoded = iso8583.decode(encoded_raw, spec)
+    >>> pprint.pp(decoded)
+    {'t': '0200', 'p': '8000000000000000', '1': '0000000004000000', '102': '111111'}
+    >>> fields = [k for k in decoded.keys() if k.isnumeric() and k != "1"]
+    >>> fields
+    ['102']
+    >>> mandatory_fields = {'2', '102'}
+    >>> all(field in fields for field in mandatory_fields)
     False
-    >>> mandatory_fields = set([2])
-    >>> doc_dec['bm'].issuperset(mandatory_fields)
+    >>> mandatory_fields = {'102'}
+    >>> all(field in fields for field in mandatory_fields)
     True
 
-Convert to JSON
-----------------
-:mod:`iso8583` output is almost JSON ready. All that's required
-is to convert ``'bm'`` from :class:`set` to a :class:`list`.
+Convert to and from JSON
+------------------------
+:mod:`iso8583` output is JSON compatible.
 
 .. code-block:: python
 
     >>> import json
+    >>> import pprint
     >>> import iso8583
     >>> from iso8583.specs import default_ascii as spec
-    >>> s = b'02004000000000000000101234567890'
-    >>> doc_dec, doc_enc = iso8583.decode(s, spec)
-    >>> doc_dec['bm'] = sorted(doc_dec['bm'])
-    >>> json.dumps(doc_dec)
-    '{"bm": [2], "t": "0200", "p": "4000000000000000", "2": "1234567890"}'
+    >>> encoded_raw = b'0200600008000000000014cardholder PAN111111021'
+    >>> decoded, encoded = iso8583.decode(encoded_raw, spec)
+    >>> pprint.pp(decoded)
+    {'t': '0200',
+     'p': '6000080000000000',
+     '2': 'cardholder PAN',
+     '3': '111111',
+     '21': '021'}
+    >>> decoded_json = json.dumps(decoded)
+    >>> decoded_json
+    '{"t": "0200", "p": "6000080000000000", "2": "cardholder PAN", "3": "111111", "21": "021"}'
 
-Convert from JSON
-------------------
-Converting :mod:`iso8583` output from JSON back to required dictionary is easy.
-All that's required is to convert ``'bm'`` back from :class:`list` to a :class:`set`.
+And back.
+
+.. code-block:: python
+
+    >>> encoded_raw, encoded = iso8583.encode(json.loads(decoded_json), spec)
+    >>> encoded_raw
+    bytearray(b'0200600008000000000014cardholder PAN111111021')
+
+:mod:`iso8583.specs` specifications are also JSON compatible.
+
+.. code-block:: python
 
     >>> import json
+    >>> import pprint
     >>> import iso8583
     >>> from iso8583.specs import default_ascii as spec
-    >>> json_data = b'{"bm": [2], "t": "0200", "p": "4000000000000000", "2": "1234567890"}'
-    >>> doc_dec = json.loads(json_data)
-    >>> doc_dec['bm'] = set(doc_dec['bm'])
-    >>> raw, doc_enc = iso8583.encode(doc_dec, spec)
-    >>> raw
-    bytearray(b'02004000000000000000101234567890')
+    >>> spec_json = json.dumps(spec)
+    >>> decoded = {
+    ...     't': '0200',
+    ...     '2': 'PAN'}
+    >>> encoded_raw, encoded = iso8583.encode(decoded, json.loads(spec_json))
+    >>> encoded_raw
+    bytearray(b'0200400000000000000003PAN')
+    >>> pprint.pp(encoded)
+    {'t': {'len': b'', 'data': b'0200'},
+     'p': {'len': b'', 'data': b'4000000000000000'},
+     '2': {'len': b'03', 'data': b'PAN'}}
+    >>> pprint.pp(decoded)
+    {'t': '0200', '2': 'PAN', 'p': '4000000000000000'}

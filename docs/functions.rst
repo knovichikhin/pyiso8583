@@ -1,8 +1,6 @@
 =======================================================
-iso8583 -- Functions
+Functions
 =======================================================
-
-.. contents:: Table of Contents
 
 Main Functions
 --------------
@@ -17,6 +15,4 @@ Exceptions
 
 Helper Functions
 ----------------
-.. autofunction:: add_field
-.. autofunction:: del_field
 .. autofunction:: pp

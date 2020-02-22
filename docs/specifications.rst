@@ -1,7 +1,5 @@
 =======================================================
-iso8583 -- Specifications
+Specifications
 =======================================================
-
-.. contents:: Table of Contents
 
 .. automodule:: iso8583.specs

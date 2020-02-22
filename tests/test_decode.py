@@ -1,927 +1,11 @@
+import copy
 import pickle
 
 import iso8583
+import iso8583.specs
 import pytest
 
-spec = {
-    "h": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 0,
-        "desc": "Message Header",
-    },
-    "t": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Message Type",
-    },
-    "p": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Bitmap, Primary",
-    },
-    "1": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Bitmap, Secondary",
-    },
-    "2": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 19,
-        "desc": "Primary Account Number (PAN)",
-    },
-    "3": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 6,
-        "desc": "Processing Code",
-    },
-    "4": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Amount, Transaction",
-    },
-    "5": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Amount, Settlement",
-    },
-    "6": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Amount, Cardholder Billing",
-    },
-    "7": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Transmission Date and Time",
-    },
-    "8": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Amount, Cardholder Billing Fee",
-    },
-    "9": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Conversion Rate, Settlement",
-    },
-    "10": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Conversion Rate, Cardholder Billing",
-    },
-    "11": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 6,
-        "desc": "System Trace Audit Number",
-    },
-    "12": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 6,
-        "desc": "Time, Local Transaction",
-    },
-    "13": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Date, Local Transaction",
-    },
-    "14": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Date, Expiration",
-    },
-    "15": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Date, Settlement",
-    },
-    "16": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Date, Conversion",
-    },
-    "17": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Date, Capture",
-    },
-    "18": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Merchant Type",
-    },
-    "19": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Acquiring Institution Country Code",
-    },
-    "20": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "PAN Country Code",
-    },
-    "21": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Forwarding Institution Country Code",
-    },
-    "22": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Point-of-Service Entry Mode",
-    },
-    "23": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "PAN Sequence Number",
-    },
-    "24": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Network International ID (NII)",
-    },
-    "25": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 2,
-        "desc": "Point-of-Service Condition Code",
-    },
-    "26": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 2,
-        "desc": "Point-of-Service Capture Code",
-    },
-    "27": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 1,
-        "desc": "Authorizing ID Response Length",
-    },
-    "28": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 9,
-        "desc": "Amount, Transaction Fee",
-    },
-    "29": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 9,
-        "desc": "Amount, Settlement Fee",
-    },
-    "30": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 9,
-        "desc": "Amount, Transaction Processing Fee",
-    },
-    "31": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 9,
-        "desc": "Amount, Settlement Processing Fee",
-    },
-    "32": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 11,
-        "desc": "Acquiring Institution ID Code",
-    },
-    "33": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 11,
-        "desc": "Forwarding Institution ID Code",
-    },
-    "34": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 28,
-        "desc": "Primary Account Number, Extended",
-    },
-    "35": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 37,
-        "desc": "Track 2 Data",
-    },
-    "36": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 104,
-        "desc": "Track 3 Data",
-    },
-    "37": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Retrieval Reference Number",
-    },
-    "38": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 6,
-        "desc": "Authorization ID Response",
-    },
-    "39": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 2,
-        "desc": "Response Code",
-    },
-    "40": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Service Restriction Code",
-    },
-    "41": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Card Acceptor Terminal ID",
-    },
-    "42": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 15,
-        "desc": "Card Acceptor ID Code",
-    },
-    "43": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 40,
-        "desc": "Card Acceptor Name/Location",
-    },
-    "44": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 25,
-        "desc": "Additional Response Data",
-    },
-    "45": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 76,
-        "desc": "Track 1 Data",
-    },
-    "46": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Additional Data - ISO",
-    },
-    "47": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Additional Data - National",
-    },
-    "48": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Additional Data - Private",
-    },
-    "49": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Currency Code, Transaction",
-    },
-    "50": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Currency Code, Settlement",
-    },
-    "51": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Currency Code, Cardholder Billing",
-    },
-    "52": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "PIN",
-    },
-    "53": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 16,
-        "desc": "Security-Related Control Information",
-    },
-    "54": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 240,
-        "desc": "Additional Amounts",
-    },
-    "55": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 255,
-        "desc": "ICC data",
-    },
-    "56": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved ISO",
-    },
-    "57": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved National",
-    },
-    "58": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved National",
-    },
-    "59": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved National",
-    },
-    "60": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved National",
-    },
-    "61": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved Private",
-    },
-    "62": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved Private",
-    },
-    "63": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved Private",
-    },
-    "64": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "MAC",
-    },
-    "65": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Bitmap, Extended",
-    },
-    "66": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 1,
-        "desc": "Settlement Code",
-    },
-    "67": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 2,
-        "desc": "Extended Payment Code",
-    },
-    "68": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Receiving Institution Country Code",
-    },
-    "69": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Settlement Institution Country Code",
-    },
-    "70": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 3,
-        "desc": "Network Management Information Code",
-    },
-    "71": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Message Number",
-    },
-    "72": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 4,
-        "desc": "Message Number, Last",
-    },
-    "73": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 6,
-        "desc": "Date, Action",
-    },
-    "74": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Credits, Number",
-    },
-    "75": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Credits, Reversal Number",
-    },
-    "76": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Debits, Number",
-    },
-    "77": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Debits, Reversal Number",
-    },
-    "78": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Transfer, Number",
-    },
-    "79": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Transfer, Reversal Number",
-    },
-    "80": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Inquiries, Number",
-    },
-    "81": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 10,
-        "desc": "Authorizations, Number",
-    },
-    "82": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Credits, Processing Fee Amount",
-    },
-    "83": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Credits, Transaction Fee Amount",
-    },
-    "84": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Debits, Processing Fee Amount",
-    },
-    "85": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 12,
-        "desc": "Debits, Transaction Fee Amount",
-    },
-    "86": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 16,
-        "desc": "Credits, Amount",
-    },
-    "87": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 16,
-        "desc": "Credits, Reversal Amount",
-    },
-    "88": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 16,
-        "desc": "Debits, Amount",
-    },
-    "89": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 16,
-        "desc": "Debits, Reversal Amount",
-    },
-    "90": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 42,
-        "desc": "Original Data Elements",
-    },
-    "91": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 1,
-        "desc": "File Update Code",
-    },
-    "92": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 2,
-        "desc": "File Security Code",
-    },
-    "93": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 5,
-        "desc": "Response Indicator",
-    },
-    "94": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 7,
-        "desc": "Service Indicator",
-    },
-    "95": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 42,
-        "desc": "Replacement Amounts",
-    },
-    "96": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "Message Security Code",
-    },
-    "97": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 17,
-        "desc": "Amount, Net Settlement",
-    },
-    "98": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 25,
-        "desc": "Payee",
-    },
-    "99": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 11,
-        "desc": "Settlement Institution ID Code",
-    },
-    "100": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 11,
-        "desc": "Receiving Institution ID Code",
-    },
-    "101": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 17,
-        "desc": "File Name",
-    },
-    "102": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 28,
-        "desc": "Account ID 1",
-    },
-    "103": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 2,
-        "max_len": 28,
-        "desc": "Account ID 2",
-    },
-    "104": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 100,
-        "desc": "Transaction Description",
-    },
-    "105": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "106": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "107": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "108": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "109": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "110": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "111": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for ISO Use",
-    },
-    "112": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "113": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "114": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "115": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "116": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "117": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "118": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "119": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for National Use",
-    },
-    "120": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "121": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "122": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "123": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "124": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "125": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "126": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "127": {
-        "data_enc": "ascii",
-        "len_enc": "ascii",
-        "len_type": 3,
-        "max_len": 999,
-        "desc": "Reserved for Private Use",
-    },
-    "128": {
-        "data_enc": "b",
-        "len_enc": "ascii",
-        "len_type": 0,
-        "max_len": 8,
-        "desc": "MAC",
-    },
-}
+spec = copy.deepcopy(iso8583.specs.default)
 
 
 def test_DecodeError_exception():
@@ -933,8 +17,8 @@ def test_DecodeError_exception():
     try:
         iso8583.decode(s, spec=spec)
     except iso8583.DecodeError as e:
-        assert e.doc_dec == ({"bm": set(), "t": ""})
-        assert e.doc_enc == ({"bm": set(), "t": {"data": b"", "len": b""}})
+        assert e.doc_dec == ({"t": ""})
+        assert e.doc_enc == ({"t": {"data": b"", "len": b""}})
         assert e.msg == "Field data is 0 bytes, expecting 4"
         assert e.field == "t"
         assert e.pos == 0
@@ -967,7 +51,25 @@ def test_input_type():
     """
     s = {}
     with pytest.raises(
-        TypeError, match="the ISO8583 data must be bytes or bytearray, not dict"
+        TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not dict"
+    ):
+        iso8583.decode(s, spec=spec)
+
+    s = []
+    with pytest.raises(
+        TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not list"
+    ):
+        iso8583.decode(s, spec=spec)
+
+    s = (0, 0)
+    with pytest.raises(
+        TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not tuple"
+    ):
+        iso8583.decode(s, spec=spec)
+
+    s = "spam"
+    with pytest.raises(
+        TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not str"
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1123,9 +225,6 @@ def test_header_ascii_absent():
     s = b"02100000000000000000"
     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
 
-    assert ("h" in doc_dec) is False
-    assert ("h" in doc_enc) is False
-
     assert doc_enc["t"]["len"] == b""
     assert doc_enc["t"]["data"] == b"0210"
     assert doc_dec["t"] == "0210"
@@ -1134,8 +233,8 @@ def test_header_ascii_absent():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["t", "p"])
+    assert doc_dec.keys() == set(["t", "p"])
 
 
 def test_header_ascii_present():
@@ -1163,8 +262,8 @@ def test_header_ascii_present():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_header_ebcdic_absent():
@@ -1179,9 +278,6 @@ def test_header_ebcdic_absent():
     s = b"02100000000000000000"
     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
 
-    assert ("h" in doc_dec) is False
-    assert ("h" in doc_enc) is False
-
     assert doc_enc["t"]["len"] == b""
     assert doc_enc["t"]["data"] == b"0210"
     assert doc_dec["t"] == "0210"
@@ -1190,8 +286,8 @@ def test_header_ebcdic_absent():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["t", "p"])
+    assert doc_dec.keys() == set(["t", "p"])
 
 
 def test_header_ebcdic_present():
@@ -1219,8 +315,8 @@ def test_header_ebcdic_present():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_header_bcd_absent():
@@ -1235,9 +331,6 @@ def test_header_bcd_absent():
     s = b"02100000000000000000"
     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
 
-    assert ("h" in doc_dec) is False
-    assert ("h" in doc_enc) is False
-
     assert doc_enc["t"]["len"] == b""
     assert doc_enc["t"]["data"] == b"0210"
     assert doc_dec["t"] == "0210"
@@ -1246,8 +339,8 @@ def test_header_bcd_absent():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["t", "p"])
+    assert doc_dec.keys() == set(["t", "p"])
 
 
 def test_header_bcd_present():
@@ -1275,8 +368,8 @@ def test_header_bcd_present():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_header_negative_missing():
@@ -1378,8 +471,8 @@ def test_header_negative_incorrect_bcd_data():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_type_ascii_absent():
@@ -1426,8 +519,8 @@ def test_type_ascii_present():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_type_ebcdic_absent():
@@ -1474,8 +567,8 @@ def test_type_ebcdic_present():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_type_bcd_absent():
@@ -1521,8 +614,8 @@ def test_type_bcd_present():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def test_type_negative_missing():
@@ -1624,8 +717,8 @@ def test_type_negative_incorrect_bcd_data():
     assert doc_enc["p"]["data"] == b"0000000000000000"
     assert doc_dec["p"] == "0000000000000000"
 
-    assert doc_enc["bm"] == set()
-    assert doc_dec["bm"] == set()
+    assert doc_enc.keys() == set(["h", "t", "p"])
+    assert doc_dec.keys() == set(["h", "t", "p"])
 
 
 def util_set2bitmap(bm):
@@ -1719,8 +812,8 @@ def test_primary_bitmap_ascii():
         s += bytearray(util_set2bitmap(bm).hex(), "ascii")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
     bm = set()
     for i in range(64, 2, -1):
@@ -1729,8 +822,8 @@ def test_primary_bitmap_ascii():
         s += bytearray(util_set2bitmap(bm).hex(), "ascii")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 def test_primary_bitmap_ebcdic():
@@ -1750,8 +843,8 @@ def test_primary_bitmap_ebcdic():
         s += bytearray(util_set2bitmap(bm).hex(), "cp500")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
     bm = set()
     for i in range(64, 2, -1):
@@ -1760,8 +853,8 @@ def test_primary_bitmap_ebcdic():
         s += bytearray(util_set2bitmap(bm).hex(), "cp500")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 def test_primary_bitmap_bcd():
@@ -1781,8 +874,8 @@ def test_primary_bitmap_bcd():
         s += util_set2bitmap(bm)
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
     bm = set()
     for i in range(64, 2, -1):
@@ -1791,8 +884,8 @@ def test_primary_bitmap_bcd():
         s += util_set2bitmap(bm)
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 def test_primary_bitmap_negative_missing():
@@ -1946,8 +1039,8 @@ def test_secondary_bitmap_ascii():
         s += bytearray(util_set2bitmap(bm).hex(), "ascii")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
     bm = set()
     for i in range(128, 1, -1):
@@ -1956,8 +1049,8 @@ def test_secondary_bitmap_ascii():
         s += bytearray(util_set2bitmap(bm).hex(), "ascii")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 def test_secondary_bitmap_ebcdic():
@@ -1978,8 +1071,8 @@ def test_secondary_bitmap_ebcdic():
         s += bytearray(util_set2bitmap(bm).hex(), "cp500")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
     bm = set()
     for i in range(128, 1, -1):
@@ -1988,8 +1081,8 @@ def test_secondary_bitmap_ebcdic():
         s += bytearray(util_set2bitmap(bm).hex(), "cp500")
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 def test_secondary_bitmap_bcd():
@@ -2010,8 +1103,8 @@ def test_secondary_bitmap_bcd():
         s += util_set2bitmap(bm)
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
     bm = set()
     for i in range(128, 1, -1):
@@ -2020,8 +1113,8 @@ def test_secondary_bitmap_bcd():
         s += util_set2bitmap(bm)
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc["bm"] ^ bm == set()
-        assert doc_dec["bm"] ^ bm == set()
+        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 def test_secondary_bitmap_negative_missing():
@@ -2189,13 +1282,13 @@ def test_fields_mix():
 
                     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
 
-                    assert doc_enc["bm"] ^ bm == set()
-                    assert doc_dec["bm"] ^ bm == set()
+                    assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
+                    assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
 
-                    for f in doc_dec["bm"]:
-                        if f == 1:
+                    for f in [k for k in doc_dec.keys() if k.isnumeric()]:
+                        if f == "1":
                             continue
-                        assert doc_dec[str(f)] == "{0:04}".format(f)
+                        assert doc_dec[f] == "{0:04}".format(int(f))
 
     bm = set()
     for i in range(65, 129):
@@ -2209,13 +1302,13 @@ def test_fields_mix():
 
                     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
 
-                    assert doc_enc["bm"] ^ bm == set()
-                    assert doc_dec["bm"] ^ bm == set()
+                    assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
+                    assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
 
-                    for f in doc_dec["bm"]:
-                        if f == 1:
+                    for f in [k for k in doc_dec.keys() if k.isnumeric()]:
+                        if f == "1":
                             continue
-                        assert doc_dec[str(f)] == "{0:04}".format(f)
+                        assert doc_dec[f] == "{0:04}".format(int(f))
 
 
 def test_field_zero_length_field():
@@ -2252,8 +1345,8 @@ def test_field_zero_length_field():
     assert doc_enc["2"]["data"] == b""
     assert doc_dec["2"] == ""
 
-    assert doc_enc["bm"] == set([2])
-    assert doc_dec["bm"] == set([2])
+    assert doc_enc.keys() == {"h", "t", "p", "2"}
+    assert doc_dec.keys() == {"h", "t", "p", "2"}
 
 
 def test_field_length_negative_missing():
@@ -2561,8 +1654,8 @@ def test_field_negative_incorrect_ascii_hex():
     assert doc_enc["2"]["data"] == b"gg"
     assert doc_dec["2"] == "gg"
 
-    assert doc_enc["bm"] == set([2])
-    assert doc_dec["bm"] == set([2])
+    assert doc_enc.keys() == {"h", "t", "p", "2"}
+    assert doc_dec.keys() == {"h", "t", "p", "2"}
 
 
 def test_field_negative_incorrect_bcd_data():
@@ -2600,8 +1693,8 @@ def test_field_negative_incorrect_bcd_data():
     assert doc_enc["2"]["data"] == b"g"
     assert doc_dec["2"] == "g"
 
-    assert doc_enc["bm"] == set([2])
-    assert doc_dec["bm"] == set([2])
+    assert doc_enc.keys() == {"h", "t", "p", "2"}
+    assert doc_dec.keys() == {"h", "t", "p", "2"}
 
 
 def test_field_negative_leftover_data():

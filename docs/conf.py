@@ -15,11 +15,10 @@ import sys
 
 sys.path.insert(0, os.path.abspath(".."))  # project root
 
-
 # -- Project information -----------------------------------------------------
 
 project = "iso8583"
-copyright = "2019, Konstantin Novichikhin"
+copyright = "2020, Konstantin Novichikhin"
 author = "Konstantin Novichikhin"
 
 import iso8583

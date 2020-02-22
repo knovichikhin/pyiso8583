@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Set, Tuple
 
 __all__ = ["encode", "EncodeError"]
 
@@ -61,13 +61,13 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
     >>> from iso8583.specs import default_ascii as spec
     >>> doc_dec = {
     ...     't': '0210',
-    ...     'bm': set([3, 39]),
     ...     '3': '111111',
     ...     '39': '05'}
     >>> s, doc_enc = iso8583.encode(doc_dec, spec)
     >>> s
     bytearray(b'0210200000000200000011111105')
     """
+
     if not isinstance(doc_dec, dict):
         raise TypeError(
             f"Decoded ISO8583 data must be dict, not {doc_dec.__class__.__name__}"
@@ -75,15 +75,16 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
 
     s = bytearray()
     doc_enc: dict = {}
+    fields: Set[int] = set()
     s += _encode_header(doc_dec, doc_enc, spec)
     s += _encode_type(doc_dec, doc_enc, spec)
-    s += _encode_bitmaps(doc_dec, doc_enc, spec)
+    s += _encode_bitmaps(doc_dec, doc_enc, spec, fields)
 
-    for f_id in [str(i) for i in sorted(doc_dec["bm"])]:
+    for field_key in [str(i) for i in sorted(fields)]:
         # Secondary bitmap is already encoded in _encode_bitmaps
-        if f_id == "1":
+        if field_key == "1":
             continue
-        s += _encode_field(doc_dec, doc_enc, f_id, spec)
+        s += _encode_field(doc_dec, doc_enc, field_key, spec)
 
     return s, doc_enc
 
@@ -189,8 +190,10 @@ def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     return doc_enc["t"]["data"]
 
 
-def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
-    r"""Encode ISO8583 primary and secondary bitmap from `d["bm"]`.
+def _encode_bitmaps(
+    doc_dec: dict, doc_enc: dict, spec: dict, fields: Set[int]
+) -> bytes:
+    r"""Encode ISO8583 primary and secondary bitmap from dictionary keys.
 
     Parameters
     ----------
@@ -201,6 +204,8 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
+    fields: set
+        Will be populated with enabled field numbers
 
     Returns
     -------
@@ -213,33 +218,39 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
         An error encoding ISO8583 bytearray.
     """
 
-    # BM list is a required field.
-    # Primary and secondary bitmaps will be created from it.
-    try:
-        doc_dec["bm"]
-    except KeyError:
-        raise EncodeError(f"Field data is required", doc_dec, doc_enc, "bm") from None
+    # Secondary bitmap will be calculated as needed
+    doc_dec.pop("1", None)
 
-    # Bitmap must consist of 1-128 field range
-    if not doc_dec["bm"].issubset(range(1, 129)):
+    # Primary and secondary bitmaps will be created from the keys
+    try:
+        fields.update([int(k) for k in doc_dec.keys() if k.isnumeric()])
+    except AttributeError as e:
         raise EncodeError(
-            "Bitmap contains fields outside 1-128 range", doc_dec, doc_enc, "bm"
+            f"Dictionary contains invalid fields {[k for k in doc_dec.keys() if not isinstance(k, str)]}",
+            doc_dec,
+            doc_enc,
+            "p",
         ) from None
 
-    # Enable or disable secondary bitmap based on presence of 65-128 fields
-    if doc_dec["bm"].isdisjoint(range(65, 129)):
-        doc_dec["bm"].discard(1)
-    else:
-        doc_dec["bm"].add(1)
+    # Bitmap must consist of 1-128 field range
+    if not fields.issubset(range(1, 129)):
+        raise EncodeError(
+            f"Dictionary contains fields outside of 1-128 range {sorted(fields.difference(range(1, 129)))}",
+            doc_dec,
+            doc_enc,
+            "p",
+        ) from None
 
-    doc_enc["bm"] = doc_dec["bm"]
+    # Add secondary bitmap if any 65-128 fields are present
+    if not fields.isdisjoint(range(65, 129)):
+        fields.add(1)
 
     # Turn on bitmap bits of associated fields.
     # There is no need to sort this set because the code below will
     # figure out appropriate byte/bit for each field.
     s = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
 
-    for f in doc_dec["bm"]:
+    for f in fields:
         # Fields start at 1. Make them zero-bound for easier conversion.
         f -= 1
 
@@ -265,7 +276,7 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
         raise EncodeError(f"Failed to encode ({e})", doc_dec, doc_enc, "p") from None
 
     # No need to produce secondary bitmap if it's not required
-    if 1 not in doc_dec["bm"]:
+    if 1 not in fields:
         return doc_enc["p"]["data"]
 
     # Encode secondary bitmap
@@ -274,7 +285,7 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
 
     try:
         if spec["1"]["data_enc"] == "b":
-            doc_enc["1"]["data"] = s[8:16]
+            doc_enc["1"]["data"] = bytes(s[8:16])
         else:
             doc_enc["1"]["data"] = doc_dec["1"].encode(spec["1"]["data_enc"])
     except Exception as e:
@@ -283,7 +294,7 @@ def _encode_bitmaps(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     return doc_enc["p"]["data"] + doc_enc["1"]["data"]
 
 
-def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
+def _encode_field(doc_dec: dict, doc_enc: dict, field_key: str, spec: dict) -> bytes:
     r"""Encode ISO8583 individual field from `d[field]`.
 
     Parameters
@@ -292,7 +303,7 @@ def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
         Dict containing decoded ISO8583 data
     doc_enc : dict
         Dict containing encoded ISO8583 data
-    f_id : str
+    field_key : str
         Field ID to be encoded
     spec : dict
         A Python dict defining ISO8583 specification.
@@ -309,71 +320,67 @@ def _encode_field(doc_dec: dict, doc_enc: dict, f_id: str, spec: dict) -> bytes:
         An error encoding ISO8583 bytearray.
     """
 
-    # Field data is required when enabled in the bitmap.
+    # Encode field data
+    doc_enc[field_key] = {"len": b"", "data": b""}
+
     try:
-        doc_dec[f_id]
-    except KeyError:
+        if spec[field_key]["data_enc"] == "b":
+            doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
+        else:
+            doc_enc[field_key]["data"] = doc_dec[field_key].encode(
+                spec[field_key]["data_enc"]
+            )
+    except Exception as e:
         raise EncodeError(
-            f"Field data is required according to bitmap", doc_dec, doc_enc, f_id
+            f"Failed to encode ({e})", doc_dec, doc_enc, field_key
         ) from None
 
-    # Encode field data
-    doc_enc[f_id] = {"len": b"", "data": b""}
-
-    try:
-        if spec[f_id]["data_enc"] == "b":
-            doc_enc[f_id]["data"] = bytes.fromhex(doc_dec[f_id])
-        else:
-            doc_enc[f_id]["data"] = doc_dec[f_id].encode(spec[f_id]["data_enc"])
-    except Exception as e:
-        raise EncodeError(f"Failed to encode ({e})", doc_dec, doc_enc, f_id) from None
-
-    len_type = spec[f_id]["len_type"]
-    f_len = len(doc_enc[f_id]["data"])
+    len_type = spec[field_key]["len_type"]
+    f_len = len(doc_enc[field_key]["data"])
 
     # Handle fixed length field. No need to calculate length.
     if len_type == 0:
-        if f_len != spec[f_id]["max_len"]:
+        if f_len != spec[field_key]["max_len"]:
             raise EncodeError(
-                f"Field data is {f_len} bytes, expecting {spec[f_id]['max_len']}",
+                f"Field data is {f_len} bytes, expecting {spec[field_key]['max_len']}",
                 doc_dec,
                 doc_enc,
-                f_id,
+                field_key,
             ) from None
 
-        doc_enc[f_id]["len"] = b""
-        return doc_enc[f_id]["data"]
+        doc_enc[field_key]["len"] = b""
+        return doc_enc[field_key]["data"]
 
     # Continue with variable length field.
 
-    if f_len > spec[f_id]["max_len"]:
+    if f_len > spec[field_key]["max_len"]:
         raise EncodeError(
-            f"Field data is {f_len} bytes, larger than maximum {spec[f_id]['max_len']}",
+            f"Field data is {f_len} bytes, larger than maximum {spec[field_key]['max_len']}",
             doc_dec,
             doc_enc,
-            f_id,
+            field_key,
         ) from None
 
     # Encode field length
     try:
-        if spec[f_id]["len_enc"] == "b":
+        if spec[field_key]["len_enc"] == "b":
             # Odd field length type is not allowed for purpose of string
             # to BCD translation. Double it, e.g.:
             # BCD LVAR length \x09 must be string "09"
             # BCD LLVAR length \x99 must be string "99"
             # BCD LLLVAR length \x09\x99 must be string "0999"
             # BCD LLLLVAR length \x99\x99 must be string "9999"
-            doc_enc[f_id]["len"] = bytes.fromhex(
+            doc_enc[field_key]["len"] = bytes.fromhex(
                 "{:0{len_type}d}".format(f_len, len_type=len_type * 2)
             )
         else:
-            doc_enc[f_id]["len"] = bytes(
+            doc_enc[field_key]["len"] = bytes(
                 "{:0{len_type}d}".format(f_len, len_type=len_type),
-                spec[f_id]["len_enc"],
+                spec[field_key]["len_enc"],
             )
     except Exception as e:
         raise EncodeError(
-            f"Failed to encode length ({e})", doc_dec, doc_enc, f_id
+            f"Failed to encode length ({e})", doc_dec, doc_enc, field_key
         ) from None
 
-    return doc_enc[f_id]["len"] + doc_enc[f_id]["data"]
+    return doc_enc[field_key]["len"] + doc_enc[field_key]["data"]

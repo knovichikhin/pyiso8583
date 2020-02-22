@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Set, Tuple, Union
 
 __all__ = ["decode", "DecodeError"]
 
@@ -84,37 +84,39 @@ def decode(s: Union[bytes, bytearray], spec: dict) -> Tuple[dict, dict]:
     {'12': '123456',
      '2': '1234567890123456',
      '20': '111',
-     'bm': {2, 12, 20},
      'p': '4010100000000000',
      't': '0200'}
     """
+
     if not isinstance(s, (bytes, bytearray)):
         raise TypeError(
-            f"the ISO8583 data must be bytes or bytearray, not {s.__class__.__name__}"
+            f"Encoded ISO8583 data must be bytes or bytearray, not {s.__class__.__name__}"
         )
 
-    doc_dec: dict = {"bm": set()}
-    doc_enc: dict = {"bm": set()}
+    doc_dec: dict = {}
+    doc_enc: dict = {}
+    fields: Set[int] = set()
     idx = 0
 
     idx = _decode_header(s, doc_dec, doc_enc, idx, spec)
     idx = _decode_type(s, doc_dec, doc_enc, idx, spec)
-    idx = _decode_bitmaps(s, doc_dec, doc_enc, idx, spec)
+    idx = _decode_bitmaps(s, doc_dec, doc_enc, idx, spec, fields)
 
-    # Create the variable in case the bitmap set is empty
-    # and there is extra data afterwards.
-    # Set field to the last mandatory one: primary bitmap.
-    f_id = "p"
+    # `field_key` can be used to throw an exception after the loop.
+    # So, create it here in case the `fields` set is empty
+    # and never enters the loop to create the variable.
+    # Set `field_key` to the last mandatory one: primary bitmap.
+    field_key = "p"
 
-    for f_id in [str(i) for i in sorted(doc_dec["bm"])]:
+    for field_key in [str(i) for i in sorted(fields)]:
         # Secondary bitmap is already decoded in _decode_bitmaps
-        if f_id == "1":
+        if field_key == "1":
             continue
-        idx = _decode_field(s, doc_dec, doc_enc, idx, f_id, spec)
+        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec)
 
     if idx != len(s):
         raise DecodeError(
-            "Extra data after last field", s, doc_dec, doc_enc, idx, f_id
+            "Extra data after last field", s, doc_dec, doc_enc, idx, field_key
         ) from None
 
     return doc_dec, doc_enc
@@ -225,7 +227,12 @@ def _decode_type(
 
 
 def _decode_bitmaps(
-    s: Union[bytes, bytearray], doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+    s: Union[bytes, bytearray],
+    doc_dec: dict,
+    doc_enc: dict,
+    idx: int,
+    spec: dict,
+    fields: Set[int],
 ) -> int:
     r"""Decode ISO8583 primary and secondary bitmaps.
 
@@ -242,6 +249,8 @@ def _decode_bitmaps(
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
+    fields: set
+        Will be populated with enabled field numbers
 
     Returns
     -------
@@ -285,7 +294,7 @@ def _decode_bitmaps(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "p"
         ) from None
 
-    doc_dec["bm"] = set(
+    fields.update(
         [
             byte_idx * 8 + bit
             for bit in range(1, 9)
@@ -293,12 +302,11 @@ def _decode_bitmaps(
             if byte >> (8 - bit) & 1
         ]
     )
-    doc_enc["bm"] = doc_dec["bm"].copy()
 
     idx += f_len
 
     # No need to produce secondary bitmap if it's not required
-    if 1 not in doc_dec["bm"]:
+    if 1 not in fields:
         return idx
 
     # Decode secondary bitmap
@@ -333,7 +341,7 @@ def _decode_bitmaps(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "1"
         ) from None
 
-    doc_dec["bm"].update(
+    fields.update(
         [
             64 + byte_idx * 8 + bit
             for bit in range(1, 9)
@@ -341,7 +349,6 @@ def _decode_bitmaps(
             if byte >> (8 - bit) & 1
         ]
     )
-    doc_enc["bm"] = doc_dec["bm"].copy()
 
     return idx + f_len
 
@@ -351,7 +358,7 @@ def _decode_field(
     doc_dec: dict,
     doc_enc: dict,
     idx: int,
-    f_id: str,
+    field_key: str,
     spec: dict,
 ) -> int:
     r"""Decode ISO8583 individual fields.
@@ -366,7 +373,7 @@ def _decode_field(
         Dict containing encoded ISO8583 data
     idx : int
         Current index in ISO8583 byte array
-    f_id : str
+    field_key : str
         Field ID to be decoded
     spec : dict
         A Python dict defining ISO8583 specification.
@@ -382,10 +389,10 @@ def _decode_field(
     DecodeError
         An error decoding ISO8583 bytearray.
     """
-    len_type = spec[f_id]["len_type"]
+    len_type = spec[field_key]["len_type"]
 
-    doc_dec[f_id] = ""
-    doc_enc[f_id] = {"len": bytes(s[idx : idx + len_type]), "data": b""}
+    doc_dec[field_key] = ""
+    doc_enc[field_key] = {"len": bytes(s[idx : idx + len_type]), "data": b""}
 
     if len(s[idx : idx + len_type]) != len_type:
         raise DecodeError(
@@ -394,32 +401,34 @@ def _decode_field(
             doc_dec,
             doc_enc,
             idx,
-            f_id,
+            field_key,
         ) from None
 
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
     if len_type == 0:
-        f_len = spec[f_id]["max_len"]
+        f_len = spec[field_key]["max_len"]
     else:
         try:
-            if spec[f_id]["len_enc"] == "b":
+            if spec[field_key]["len_enc"] == "b":
                 f_len = int(s[idx : idx + len_type].hex(), 10)
             else:
-                f_len = int(s[idx : idx + len_type].decode(spec[f_id]["len_enc"]), 10)
+                f_len = int(
+                    s[idx : idx + len_type].decode(spec[field_key]["len_enc"]), 10
+                )
         except Exception as e:
             raise DecodeError(
-                f"Failed to decode length ({e})", s, doc_dec, doc_enc, idx, f_id
+                f"Failed to decode length ({e})", s, doc_dec, doc_enc, idx, field_key
             ) from None
 
-    if f_len > spec[f_id]["max_len"]:
+    if f_len > spec[field_key]["max_len"]:
         raise DecodeError(
-            f"Field data is {f_len} bytes, larger than maximum {spec[f_id]['max_len']}",
+            f"Field data is {f_len} bytes, larger than maximum {spec[field_key]['max_len']}",
             s,
             doc_dec,
             doc_enc,
             idx,
-            f_id,
+            field_key,
         ) from None
 
     idx += len_type
@@ -429,26 +438,28 @@ def _decode_field(
         return idx
 
     # Parse field data
-    doc_enc[f_id]["data"] = bytes(s[idx : idx + f_len])
+    doc_enc[field_key]["data"] = bytes(s[idx : idx + f_len])
 
-    if len(doc_enc[f_id]["data"]) != f_len:
+    if len(doc_enc[field_key]["data"]) != f_len:
         raise DecodeError(
-            f"Field data is {len(doc_enc[f_id]['data'])} bytes, expecting {f_len}",
+            f"Field data is {len(doc_enc[field_key]['data'])} bytes, expecting {f_len}",
             s,
             doc_dec,
             doc_enc,
             idx,
-            f_id,
+            field_key,
         ) from None
 
     try:
-        if spec[f_id]["data_enc"] == "b":
-            doc_dec[f_id] = doc_enc[f_id]["data"].hex().upper()
+        if spec[field_key]["data_enc"] == "b":
+            doc_dec[field_key] = doc_enc[field_key]["data"].hex().upper()
         else:
-            doc_dec[f_id] = doc_enc[f_id]["data"].decode(spec[f_id]["data_enc"])
+            doc_dec[field_key] = doc_enc[field_key]["data"].decode(
+                spec[field_key]["data_enc"]
+            )
     except Exception as e:
         raise DecodeError(
-            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, f_id
+            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, field_key
         ) from None
 
     return idx + f_len
