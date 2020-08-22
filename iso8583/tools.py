@@ -1,12 +1,17 @@
 import sys as _sys
-from typing import Generator, Optional, TextIO
+from typing import (Any, Callable, Dict, Generator, Mapping, Optional, TextIO,
+                    Union)
 
 __all__ = ["pp"]
 
+DecodedDict = Mapping[str, str]
+EncodedDict = Mapping[str, Mapping[str, bytes]]
+SpecDict = Mapping[str, Mapping[str, Any]]
+
 
 def pp(
-    doc: dict,
-    spec: dict,
+    doc: Union[DecodedDict, EncodedDict],
+    spec: SpecDict,
     desc_width: int = 30,
     stream: Optional[TextIO] = None,
     line_width: int = 80,
@@ -73,8 +78,8 @@ def pp(
 
 
 def _pp_field(
-    doc: dict,
-    spec: dict,
+    doc: Union[DecodedDict, EncodedDict],
+    spec: SpecDict,
     desc_width: int,
     stream: TextIO,
     line_width: int,
@@ -94,15 +99,17 @@ def _pp_field(
 
     stream.write(": ")
 
-    if isinstance(doc[field_key], dict):
-        field_length = doc[field_key].get("len", b"")
+    doc_field = doc[field_key]
+
+    if isinstance(doc_field, dict):
+        field_length = doc_field.get("len", b"")
         if len(field_length) > 0:
             stream.write("{} ".format(repr(field_length)))
             indent += len(repr(field_length)) + 1
 
-        obj = doc[field_key].get("data", b"")
+        obj = doc_field.get("data", b"")
     else:
-        obj = doc[field_key]
+        obj = doc_field
 
     rep = repr(obj)
     if len(rep) + indent > line_width:
@@ -115,7 +122,7 @@ def _pp_field(
     stream.write("{}\n".format(repr(obj)))
 
 
-_dispatch: dict = {}
+_dispatch: Dict[Any, Callable[[Any, TextIO, int, int], None]] = {}
 
 
 def _pprint_str(obj: str, stream: TextIO, indent: int, width: int) -> None:

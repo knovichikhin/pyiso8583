@@ -1,6 +1,10 @@
-from typing import Set, Tuple
+from typing import Any, Dict, Mapping, MutableMapping, Set, Tuple, Type
 
 __all__ = ["encode", "EncodeError"]
+
+DecodedDict = MutableMapping[str, str]
+EncodedDict = Dict[str, Dict[str, bytes]]
+SpecDict = Mapping[str, Mapping[str, Any]]
 
 
 class EncodeError(ValueError):
@@ -18,7 +22,9 @@ class EncodeError(ValueError):
         The ISO8583 field where parsing failed
     """
 
-    def __init__(self, msg: str, doc_dec: dict, doc_enc: dict, field: str):
+    def __init__(
+        self, msg: str, doc_dec: DecodedDict, doc_enc: EncodedDict, field: str
+    ):
         errmsg = f"{msg}: field {field}"
         ValueError.__init__(self, errmsg)
         self.msg = msg
@@ -26,11 +32,13 @@ class EncodeError(ValueError):
         self.doc_enc = doc_enc
         self.field = field
 
-    def __reduce__(self):
+    def __reduce__(
+        self,
+    ) -> Tuple[Type["EncodeError"], Tuple[str, DecodedDict, EncodedDict, str]]:
         return self.__class__, (self.msg, self.doc_dec, self.doc_enc, self.field)
 
 
-def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
+def encode(doc_dec: DecodedDict, spec: SpecDict) -> Tuple[bytearray, EncodedDict]:
     r"""Serialize Python dict containing ISO8583 data to a bytearray.
 
     Parameters
@@ -74,7 +82,7 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
         )
 
     s = bytearray()
-    doc_enc: dict = {}
+    doc_enc: EncodedDict = {}
     fields: Set[int] = set()
     s += _encode_header(doc_dec, doc_enc, spec)
     s += _encode_type(doc_dec, doc_enc, spec)
@@ -94,7 +102,7 @@ def encode(doc_dec: dict, spec: dict) -> Tuple[bytearray, dict]:
 #
 
 
-def _encode_header(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
+def _encode_header(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> bytes:
     r"""Encode ISO8583 header data if present from `d["h"]`.
 
     Parameters
@@ -133,7 +141,7 @@ def _encode_header(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
     return _encode_field(doc_dec, doc_enc, "h", spec)
 
 
-def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
+def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> bytes:
     r"""Encode ISO8583 message type from `d["t"]`.
 
     Parameters
@@ -191,7 +199,7 @@ def _encode_type(doc_dec: dict, doc_enc: dict, spec: dict) -> bytes:
 
 
 def _encode_bitmaps(
-    doc_dec: dict, doc_enc: dict, spec: dict, fields: Set[int]
+    doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict, fields: Set[int]
 ) -> bytes:
     r"""Encode ISO8583 primary and secondary bitmap from dictionary keys.
 
@@ -294,7 +302,9 @@ def _encode_bitmaps(
     return doc_enc["p"]["data"] + doc_enc["1"]["data"]
 
 
-def _encode_field(doc_dec: dict, doc_enc: dict, field_key: str, spec: dict) -> bytes:
+def _encode_field(
+    doc_dec: DecodedDict, doc_enc: EncodedDict, field_key: str, spec: SpecDict
+) -> bytes:
     r"""Encode ISO8583 individual field from `d[field]`.
 
     Parameters

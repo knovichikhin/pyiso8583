@@ -1,6 +1,10 @@
-from typing import Set, Tuple, Union
+from typing import Any, Dict, Mapping, Set, Tuple, Type, Union
 
 __all__ = ["decode", "DecodeError"]
+
+DecodedDict = Dict[str, str]
+EncodedDict = Dict[str, Dict[str, bytes]]
+SpecDict = Mapping[str, Mapping[str, Any]]
 
 
 class DecodeError(ValueError):
@@ -26,8 +30,8 @@ class DecodeError(ValueError):
         self,
         msg: str,
         s: Union[bytes, bytearray],
-        doc_dec: dict,
-        doc_enc: dict,
+        doc_dec: DecodedDict,
+        doc_enc: EncodedDict,
         pos: int,
         field: str,
     ):
@@ -40,14 +44,21 @@ class DecodeError(ValueError):
         self.field = field
         self.pos = pos
 
-    def __reduce__(self):
+    def __reduce__(
+        self,
+    ) -> Tuple[
+        Type["DecodeError"],
+        Tuple[str, Union[bytes, bytearray], DecodedDict, EncodedDict, int, str],
+    ]:
         return (
             self.__class__,
             (self.msg, self.s, self.doc_dec, self.doc_enc, self.pos, self.field),
         )
 
 
-def decode(s: Union[bytes, bytearray], spec: dict) -> Tuple[dict, dict]:
+def decode(
+    s: Union[bytes, bytearray], spec: SpecDict
+) -> Tuple[DecodedDict, EncodedDict]:
     r"""Deserialize a bytes or bytearray instance containing
     ISO8583 data to a Python dict.
 
@@ -93,8 +104,8 @@ def decode(s: Union[bytes, bytearray], spec: dict) -> Tuple[dict, dict]:
             f"Encoded ISO8583 data must be bytes or bytearray, not {s.__class__.__name__}"
         )
 
-    doc_dec: dict = {}
-    doc_enc: dict = {}
+    doc_dec: DecodedDict = {}
+    doc_enc: EncodedDict = {}
     fields: Set[int] = set()
     idx = 0
 
@@ -128,7 +139,11 @@ def decode(s: Union[bytes, bytearray], spec: dict) -> Tuple[dict, dict]:
 
 
 def _decode_header(
-    s: Union[bytes, bytearray], doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+    s: Union[bytes, bytearray],
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    idx: int,
+    spec: SpecDict,
 ) -> int:
     r"""Decode ISO8583 header data if present.
 
@@ -165,7 +180,11 @@ def _decode_header(
 
 
 def _decode_type(
-    s: Union[bytes, bytearray], doc_dec: dict, doc_enc: dict, idx: int, spec: dict
+    s: Union[bytes, bytearray],
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    idx: int,
+    spec: SpecDict,
 ) -> int:
     r"""Decode ISO8583 message type.
 
@@ -228,10 +247,10 @@ def _decode_type(
 
 def _decode_bitmaps(
     s: Union[bytes, bytearray],
-    doc_dec: dict,
-    doc_enc: dict,
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
     idx: int,
-    spec: dict,
+    spec: SpecDict,
     fields: Set[int],
 ) -> int:
     r"""Decode ISO8583 primary and secondary bitmaps.
@@ -355,11 +374,11 @@ def _decode_bitmaps(
 
 def _decode_field(
     s: Union[bytes, bytearray],
-    doc_dec: dict,
-    doc_enc: dict,
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
     idx: int,
     field_key: str,
-    spec: dict,
+    spec: SpecDict,
 ) -> int:
     r"""Decode ISO8583 individual fields.
 
@@ -407,7 +426,7 @@ def _decode_field(
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
     if len_type == 0:
-        f_len = spec[field_key]["max_len"]
+        f_len: int = spec[field_key]["max_len"]
     else:
         try:
             if spec[field_key]["len_enc"] == "b":
