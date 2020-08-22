@@ -28,7 +28,7 @@ if __name__ == "__main__":
         long_description=readme,
         long_description_content_type="text/x-rst",
         license="MIT",
-        url="https://github.com/manoutoftime/pyiso8583",
+        url="https://github.com/knovichikhin/pyiso8583",
         packages=find_packages(exclude=["tests"]),
         classifiers=classifiers,
         python_requires=">=3.6",

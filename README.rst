@@ -97,7 +97,7 @@ to pretty print ISO8583 message.
 Contribute
 ----------
 
-`iso8583` package is hosted on `GitHub <https://github.com/manoutoftime/pyiso8583>`_.
+`iso8583` package is hosted on `GitHub <https://github.com/knovichikhin/pyiso8583>`_.
 
 Feel free to fork and send contributions over.
 
@@ -109,6 +109,6 @@ Feel free to fork and send contributions over.
     :alt: Documentation Status
     :target: https://pyiso8583.readthedocs.io/en/latest/?badge=latest
 
-.. |coverage| image:: https://codecov.io/gh/manoutoftime/pyiso8583/branch/master/graph/badge.svg
+.. |coverage| image:: https://codecov.io/gh/knovichikhin/pyiso8583/branch/master/graph/badge.svg
     :alt: Test coverage
-    :target: https://codecov.io/gh/manoutoftime/pyiso8583
+    :target: https://codecov.io/gh/knovichikhin/pyiso8583

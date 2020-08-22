@@ -14,7 +14,7 @@ Create Own/Proprietary Specifications
 Feel free to copy sample specification ``dict`` and modify it to your needs.
 Refer to :mod:`iso8583.specs` for configuration details.
 
-.. _iso8583.specs.py: https://github.com/manoutoftime/pyiso8583/blob/master/iso8583/specs.py
+.. _iso8583.specs.py: https://github.com/knovichikhin/pyiso8583/blob/master/iso8583/specs.py
 
 Create ISO8583 Message
 ----------------------
