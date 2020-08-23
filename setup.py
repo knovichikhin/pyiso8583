@@ -30,6 +30,8 @@ if __name__ == "__main__":
         license="MIT",
         url="https://github.com/knovichikhin/pyiso8583",
         packages=find_packages(exclude=["tests"]),
+        package_data={"iso8583": ["py.typed"]},
+        zip_safe=False,
         classifiers=classifiers,
         python_requires=">=3.6",
         keywords="iso8583 8583 banking protocol library",
