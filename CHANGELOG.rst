@@ -1,3 +1,8 @@
+2.0.1 - 2020-08-22
+------------------
+- Include inline type information into the distribution according to `PEP 561 <https://www.python.org/dev/peps/pep-0561/>`_.
+- Address remaining type hint issues.
+
 2.0.0 - 2020-02-21
 ------------------
 **Backwards incompatible**:
