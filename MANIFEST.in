@@ -1,2 +1,2 @@
-include README.rst LICENSE.md pytest.ini requirements*.txt
+include README.rst LICENSE.md pytest.ini mypy.ini requirements*.txt
 recursive-include tests *.py
