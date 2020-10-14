@@ -1,2 +1,6 @@
-include README.rst LICENSE.md pytest.ini mypy.ini requirements*.txt
+include README.rst LICENSE.md requirements*.txt
+include pyproject.toml
+include setup.cfg
+include Makefile
 recursive-include tests *.py
+recursive-include docs *.rst *.py *.md Makefile *.bat
