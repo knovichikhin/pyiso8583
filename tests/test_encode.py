@@ -81,13 +81,15 @@ def test_non_string_field_keys():
 
     doc_dec = {"h": "header", "t": "0210", 2: "1122"}
     with pytest.raises(
-        iso8583.EncodeError, match="Dictionary contains invalid fields .2.: field p",
+        iso8583.EncodeError,
+        match="Dictionary contains invalid fields .2.: field p",
     ):
         iso8583.encode(doc_dec, spec=spec)
 
     doc_dec = {"h": "header", "t": "0210", 2: "1122", 3: "3344"}
     with pytest.raises(
-        iso8583.EncodeError, match="Dictionary contains invalid fields .2, 3.: field p",
+        iso8583.EncodeError,
+        match="Dictionary contains invalid fields .2, 3.: field p",
     ):
         iso8583.encode(doc_dec, spec=spec)
 

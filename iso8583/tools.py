@@ -1,6 +1,5 @@
 import sys as _sys
-from typing import (Any, Callable, Dict, Generator, Mapping, Optional, TextIO,
-                    Union)
+from typing import Any, Callable, Dict, Generator, Mapping, Optional, TextIO, Union
 
 __all__ = ["pp"]
 
@@ -92,7 +91,8 @@ def _pp_field(
     if desc_width > 0:
         stream.write(
             " {desc: <{desc_width}}".format(
-                desc=spec[field_key]["desc"][:desc_width], desc_width=desc_width,
+                desc=spec[field_key]["desc"][:desc_width],
+                desc_width=desc_width,
             )
         )
         indent += desc_width + 1
