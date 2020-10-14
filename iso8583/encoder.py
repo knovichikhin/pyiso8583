@@ -135,7 +135,7 @@ def _encode_header(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -
         doc_dec["h"]
     except KeyError:
         raise EncodeError(
-            f"Field data is required according to specifications", doc_dec, doc_enc, "h"
+            "Field data is required according to specifications", doc_dec, doc_enc, "h"
         ) from None
 
     return _encode_field(doc_dec, doc_enc, "h", spec)
@@ -169,7 +169,7 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
     try:
         doc_dec["t"]
     except KeyError:
-        raise EncodeError(f"Field data is required", doc_dec, doc_enc, "t") from None
+        raise EncodeError("Field data is required", doc_dec, doc_enc, "t") from None
 
     # Message type is a set length in ISO8583
     if spec["t"]["data_enc"] == "b":
@@ -232,7 +232,7 @@ def _encode_bitmaps(
     # Primary and secondary bitmaps will be created from the keys
     try:
         fields.update([int(k) for k in doc_dec.keys() if k.isnumeric()])
-    except AttributeError as e:
+    except AttributeError:
         raise EncodeError(
             f"Dictionary contains invalid fields {[k for k in doc_dec.keys() if not isinstance(k, str)]}",
             doc_dec,
