@@ -1,10 +1,13 @@
-black
+black == 20.8b1
 flake8
-pytest
+pytest >= 6.0 # Min to support pyproject.toml
 pytest-cov
 coverage
+toml # Needed by coverage to support pyproject.toml
 codecov
 twine
 wheel
+setuptools
 sphinx
 sphinx-rtd-theme
+mypy
