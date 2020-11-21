@@ -165,14 +165,13 @@ are received. It's easy to do this using :meth:`all` (`docs`_).
     >>> decoded, encoded = iso8583.decode(encoded_raw, spec)
     >>> pprint.pp(decoded)
     {'t': '0200', 'p': '8000000000000000', '1': '0000000004000000', '102': '111111'}
-    >>> fields = [k for k in decoded.keys() if k.isnumeric() and k != "1"]
-    >>> fields
-    ['102']
+    >>> decoded.keys()
+    dict_keys(['t', 'p', '1', '102'])
     >>> mandatory_fields = {'2', '102'}
-    >>> all(field in fields for field in mandatory_fields)
+    >>> all(field in decoded.keys() for field in mandatory_fields)
     False
     >>> mandatory_fields = {'102'}
-    >>> all(field in fields for field in mandatory_fields)
+    >>> all(field in decoded.keys() for field in mandatory_fields)
     True
 
 Convert to and from JSON
