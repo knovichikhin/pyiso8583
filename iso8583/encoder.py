@@ -288,7 +288,7 @@ def _encode_bitmaps(
         return doc_enc["p"]["data"]
 
     # Encode secondary bitmap
-    doc_dec["1"] = s[8:16].hex()
+    doc_dec["1"] = s[8:16].hex().upper()
     doc_enc["1"] = {"len": b"", "data": b""}
 
     try:
