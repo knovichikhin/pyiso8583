@@ -1368,7 +1368,7 @@ def test_secondary_bitmap_incorrect_encoding():
         iso8583.encode(doc_dec, spec=spec)
 
 
-def test_ascii_bitmaps():
+def test_bitmaps_ascii():
     """
     Field is required and not key provided
     """
@@ -1410,7 +1410,7 @@ def test_ascii_bitmaps():
     assert doc_dec.keys() == set(["h", "t", "p", "1", "105"])
 
 
-def test_ebcidic_bitmaps():
+def test_bitmaps_ebcidic():
     """
     Field is required and not key provided
     """
@@ -1463,7 +1463,7 @@ def test_ebcidic_bitmaps():
     assert doc_dec.keys() == set(["h", "t", "p", "1", "105"])
 
 
-def test_bcd_bitmaps():
+def test_bitmaps_bcd():
     """
     Field is required and not key provided
     """
@@ -1506,6 +1506,61 @@ def test_bcd_bitmaps():
 
     assert doc_enc.keys() == set(["h", "t", "p", "1", "105"])
     assert doc_dec.keys() == set(["h", "t", "p", "1", "105"])
+
+
+def test_primary_bitmap_ascii_upper_case():
+    """
+    This test makes sure that encoded primary bitmap is in upper case.
+    """
+    spec["h"]["len_type"] = 0
+    spec["h"]["max_len"] = 0
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["5"]["len_type"] = 0
+    spec["5"]["max_len"] = 1
+    spec["5"]["data_enc"] = "ascii"
+    spec["7"]["len_type"] = 0
+    spec["7"]["max_len"] = 1
+    spec["7"]["data_enc"] = "ascii"
+
+    doc_dec = {"t": "0200", "5": "A", "7": "B"}
+    s, doc_enc = iso8583.encode(doc_dec, spec)
+    assert s == b"02000A00000000000000AB"
+    assert doc_dec["p"] == "0A00000000000000"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"0A00000000000000"
+    assert doc_enc["5"]["data"] == b"A"
+    assert doc_enc["7"]["data"] == b"B"
+
+
+def test_secondary_bitmap_ascii_upper_case():
+    """
+    This test makes sure that encoded secondary bitmap is in upper case.
+    """
+    spec["h"]["len_type"] = 0
+    spec["h"]["max_len"] = 0
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+    spec["1"]["data_enc"] = "ascii"
+
+    spec["69"]["len_type"] = 0
+    spec["69"]["max_len"] = 1
+    spec["69"]["data_enc"] = "ascii"
+    spec["71"]["len_type"] = 0
+    spec["71"]["max_len"] = 1
+    spec["71"]["data_enc"] = "ascii"
+
+    doc_dec = {"t": "0200", "69": "A", "71": "B"}
+    s, doc_enc = iso8583.encode(doc_dec, spec)
+    assert s == b"020080000000000000000A00000000000000AB"
+    assert doc_dec["p"] == "8000000000000000"
+    assert doc_dec["1"] == "0A00000000000000"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"8000000000000000"
+    assert doc_enc["1"]["data"] == b"0A00000000000000"
+    assert doc_enc["69"]["data"] == b"A"
+    assert doc_enc["71"]["data"] == b"B"
 
 
 def test_fixed_field_ascii_absent():

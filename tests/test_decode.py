@@ -826,6 +826,78 @@ def test_primary_bitmap_ascii():
         assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
+def test_primary_bitmap_ascii_mixed_case():
+    """
+    This test makes sure that lower, upper and mixed case bitmap is
+    decoded the same way.
+    """
+    spec["h"]["len_type"] = 0
+    spec["h"]["max_len"] = 0
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["5"]["len_type"] = 0
+    spec["5"]["max_len"] = 1
+    spec["5"]["data_enc"] = "ascii"
+    spec["7"]["len_type"] = 0
+    spec["7"]["max_len"] = 1
+    spec["7"]["data_enc"] = "ascii"
+    spec["9"]["len_type"] = 0
+    spec["9"]["max_len"] = 1
+    spec["9"]["data_enc"] = "ascii"
+    spec["11"]["len_type"] = 0
+    spec["11"]["max_len"] = 1
+    spec["11"]["data_enc"] = "ascii"
+
+    # Upper case
+    s = b"02000AA0000000000000ABCD"
+    doc_dec, doc_enc = iso8583.decode(s, spec)
+    assert doc_dec["t"] == "0200"
+    assert doc_dec["p"] == "0AA0000000000000"
+    assert doc_dec["5"] == "A"
+    assert doc_dec["7"] == "B"
+    assert doc_dec["9"] == "C"
+    assert doc_dec["11"] == "D"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"0AA0000000000000"
+    assert doc_enc["5"]["data"] == b"A"
+    assert doc_enc["7"]["data"] == b"B"
+    assert doc_enc["9"]["data"] == b"C"
+    assert doc_enc["11"]["data"] == b"D"
+
+    # Mixed case
+    s = b"02000Aa0000000000000ABCD"
+    doc_dec, doc_enc = iso8583.decode(s, spec)
+    assert doc_dec["t"] == "0200"
+    assert doc_dec["p"] == "0Aa0000000000000"
+    assert doc_dec["5"] == "A"
+    assert doc_dec["7"] == "B"
+    assert doc_dec["9"] == "C"
+    assert doc_dec["11"] == "D"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"0Aa0000000000000"
+    assert doc_enc["5"]["data"] == b"A"
+    assert doc_enc["7"]["data"] == b"B"
+    assert doc_enc["9"]["data"] == b"C"
+    assert doc_enc["11"]["data"] == b"D"
+
+    # Lower case
+    s = b"02000aa0000000000000ABCD"
+    doc_dec, doc_enc = iso8583.decode(s, spec)
+    assert doc_dec["t"] == "0200"
+    assert doc_dec["p"] == "0aa0000000000000"
+    assert doc_dec["5"] == "A"
+    assert doc_dec["7"] == "B"
+    assert doc_dec["9"] == "C"
+    assert doc_dec["11"] == "D"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"0aa0000000000000"
+    assert doc_enc["5"]["data"] == b"A"
+    assert doc_enc["7"]["data"] == b"B"
+    assert doc_enc["9"]["data"] == b"C"
+    assert doc_enc["11"]["data"] == b"D"
+
+
 def test_primary_bitmap_ebcdic():
     """
     This test will validate bitmap decoding for fields 1-64
@@ -1051,6 +1123,85 @@ def test_secondary_bitmap_ascii():
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
         assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
         assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+
+
+def test_secondary_bitmap_ascii_mixed_case():
+    """
+    This test makes sure that lower, upper and mixed case bitmap is
+    decoded the same way.
+    """
+    spec["h"]["len_type"] = 0
+    spec["h"]["max_len"] = 0
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+    spec["1"]["data_enc"] = "ascii"
+
+    spec["69"]["len_type"] = 0
+    spec["69"]["max_len"] = 1
+    spec["69"]["data_enc"] = "ascii"
+    spec["71"]["len_type"] = 0
+    spec["71"]["max_len"] = 1
+    spec["71"]["data_enc"] = "ascii"
+    spec["73"]["len_type"] = 0
+    spec["73"]["max_len"] = 1
+    spec["73"]["data_enc"] = "ascii"
+    spec["75"]["len_type"] = 0
+    spec["75"]["max_len"] = 1
+    spec["75"]["data_enc"] = "ascii"
+
+    # Upper case
+    s = b"020080000000000000000AA0000000000000ABCD"
+    doc_dec, doc_enc = iso8583.decode(s, spec)
+    assert doc_dec["t"] == "0200"
+    assert doc_dec["p"] == "8000000000000000"
+    assert doc_dec["1"] == "0AA0000000000000"
+    assert doc_dec["69"] == "A"
+    assert doc_dec["71"] == "B"
+    assert doc_dec["73"] == "C"
+    assert doc_dec["75"] == "D"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"8000000000000000"
+    assert doc_enc["1"]["data"] == b"0AA0000000000000"
+    assert doc_enc["69"]["data"] == b"A"
+    assert doc_enc["71"]["data"] == b"B"
+    assert doc_enc["73"]["data"] == b"C"
+    assert doc_enc["75"]["data"] == b"D"
+
+    # Mixed case
+    s = b"020080000000000000000Aa0000000000000ABCD"
+    doc_dec, doc_enc = iso8583.decode(s, spec)
+    assert doc_dec["t"] == "0200"
+    assert doc_dec["p"] == "8000000000000000"
+    assert doc_dec["1"] == "0Aa0000000000000"
+    assert doc_dec["69"] == "A"
+    assert doc_dec["71"] == "B"
+    assert doc_dec["73"] == "C"
+    assert doc_dec["75"] == "D"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"8000000000000000"
+    assert doc_enc["1"]["data"] == b"0Aa0000000000000"
+    assert doc_enc["69"]["data"] == b"A"
+    assert doc_enc["71"]["data"] == b"B"
+    assert doc_enc["73"]["data"] == b"C"
+    assert doc_enc["75"]["data"] == b"D"
+
+    # Lower case
+    s = b"020080000000000000000aa0000000000000ABCD"
+    doc_dec, doc_enc = iso8583.decode(s, spec)
+    assert doc_dec["t"] == "0200"
+    assert doc_dec["p"] == "8000000000000000"
+    assert doc_dec["1"] == "0aa0000000000000"
+    assert doc_dec["69"] == "A"
+    assert doc_dec["71"] == "B"
+    assert doc_dec["73"] == "C"
+    assert doc_dec["75"] == "D"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_enc["p"]["data"] == b"8000000000000000"
+    assert doc_enc["1"]["data"] == b"0aa0000000000000"
+    assert doc_enc["69"]["data"] == b"A"
+    assert doc_enc["71"]["data"] == b"B"
+    assert doc_enc["73"]["data"] == b"C"
+    assert doc_enc["75"]["data"] == b"D"
 
 
 def test_secondary_bitmap_ebcdic():
