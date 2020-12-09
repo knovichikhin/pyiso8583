@@ -11,6 +11,7 @@ addopts = "-ra --doctest-modules"
 doctest_optionflags = "NORMALIZE_WHITESPACE"
 testpaths = [
     "tests",
+    "iso8583",
 ]
 
 [tool.coverage.run]
