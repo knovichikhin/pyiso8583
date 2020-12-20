@@ -465,7 +465,10 @@ def _decode_field(
     # Encoded field length can be in bytes or half bytes (nibbles)
     # Convert nibbles to bytes if needed
     if len_count == "nibbles":
-        byte_field_len = enc_field_len // 2
+        if enc_field_len & 1:
+            byte_field_len = (enc_field_len + 1) // 2
+        else:
+            byte_field_len = enc_field_len // 2
     else:
         byte_field_len = enc_field_len
 
@@ -489,13 +492,76 @@ def _decode_field(
     try:
         if spec[field_key]["data_enc"] == "b":
             doc_dec[field_key] = doc_enc[field_key]["data"].hex().upper()
+            if len_count == "nibbles" and enc_field_len & 1:
+                doc_dec[field_key] = _remove_pad_field(
+                    s, idx, doc_dec, doc_enc, field_key, spec, enc_field_len
+                )
         else:
             doc_dec[field_key] = doc_enc[field_key]["data"].decode(
                 spec[field_key]["data_enc"]
             )
+    except DecodeError as e:
+        raise e from None
     except Exception as e:
         raise DecodeError(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, field_key
         ) from None
 
     return idx + byte_field_len
+
+
+def _remove_pad_field(
+    s: Union[bytes, bytearray],
+    idx: int,
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    field_key: str,
+    spec: SpecDict,
+    enc_field_len: int,
+) -> str:
+    r"""Remove left or right pad from a BCD or hex field.
+
+    Parameters
+    ----------
+    s : bytes or bytearray
+        Encoded ISO8583 data
+    idx : int
+        Current index in ISO8583 byte array
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    doc_enc : dict
+        Dict containing encoded ISO8583 data
+    field_key : str
+        Field ID to remove pad from
+    spec : dict
+        A Python dict defining ISO8583 specification.
+        See :mod:`iso8583.specs` module for examples.
+    enc_field_len : int
+        Number of nibbles expected in the field
+
+    Returns
+    -------
+    str
+        Field data without pad
+
+    Raises
+    ------
+    DecodeError
+        An error decoding ISO8583 bytearray.
+    """
+    pad: str = spec[field_key].get("left_pad", "")[:1]
+    if len(pad) > 0 and doc_dec[field_key][:1] == pad:
+        return doc_dec[field_key][1:]
+
+    pad = spec[field_key].get("right_pad", "")[:1]
+    if len(pad) > 0 and doc_dec[field_key][-1:] == pad:
+        return doc_dec[field_key][:-1]
+
+    raise DecodeError(
+        f"Field data is {len(doc_dec[field_key])} nibbles, expecting {enc_field_len}",
+        s,
+        doc_dec,
+        doc_enc,
+        idx,
+        field_key,
+    ) from None

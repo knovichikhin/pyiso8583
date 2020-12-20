@@ -146,6 +146,7 @@ def test_encode_nibbles_odd_right_pad(
     assert s == result
     assert encoded["2"]["len"] == result_f2_len
 
+
 def test_encode_nibbles_odd_no_pad() -> None:
     spec = copy.deepcopy(iso8583.specs.default)
     spec["t"]["data_enc"] = "ascii"
@@ -156,7 +157,6 @@ def test_encode_nibbles_odd_no_pad() -> None:
     spec["2"]["len_type"] = 2
     spec["2"]["max_len"] = 8
     spec["2"]["len_count"] = "nibbles"
-
 
     decoded = {"t": "0200", "2": "1"}
     with pytest.raises(
@@ -208,6 +208,115 @@ def test_decode_nibbles(
 
     assert decoded["2"] == "1234"
     assert encoded["2"]["len"] == result_f2_len
+
+
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc", "len_type", "max_len", "len_count", "pad", "data", "result_f2_len"],
+    [
+        ("ascii", 2, 8, "nibbles", "0", b"0200400000000000000003\x01\x23", b"03"),
+        ("b",     2, 8, "nibbles", "0", b"02004000000000000000\x00\x03\x01\x23", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "0", b"02004000000000000000\x01\x23", b""),
+        ("ascii", 2, 8, "nibbles", "F", b"0200400000000000000003\xF1\x23", b"03"),
+        ("b",     2, 8, "nibbles", "F", b"02004000000000000000\x00\x03\xF1\x23", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "F", b"02004000000000000000\xF1\x23", b""),
+        ("ascii", 2, 8, "nibbles", "01", b"0200400000000000000003\x01\x23", b"03"),
+        ("b",     2, 8, "nibbles", "01", b"02004000000000000000\x00\x03\x01\x23", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "01", b"02004000000000000000\x01\x23", b""),
+        ("ascii", 2, 8, "nibbles", "F1", b"0200400000000000000003\xF1\x23", b"03"),
+        ("b",     2, 8, "nibbles", "F1", b"02004000000000000000\x00\x03\xF1\x23", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "F1", b"02004000000000000000\xF1\x23", b""),
+    ],
+)
+# fmt: on
+def test_decode_nibbles_left_pad(
+    len_enc: str,
+    len_type: int,
+    max_len: int,
+    len_count: str,
+    pad: str,
+    data: bytes,
+    result_f2_len: bytes,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default)
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["2"]["data_enc"] = "b"
+    spec["2"]["len_enc"] = len_enc
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
+    spec["2"]["len_count"] = len_count
+    spec["2"]["left_pad"] = pad
+
+    decoded, encoded = iso8583.decode(data, spec)
+
+    assert decoded["2"] == "123"
+    assert encoded["2"]["len"] == result_f2_len
+
+
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc", "len_type", "max_len", "len_count", "pad", "data", "result_f2_len"],
+    [
+        ("ascii", 2, 8, "nibbles", "0", b"0200400000000000000003\x12\x30", b"03"),
+        ("b",     2, 8, "nibbles", "0", b"02004000000000000000\x00\x03\x12\x30", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "0", b"02004000000000000000\x12\x30", b""),
+        ("ascii", 2, 8, "nibbles", "F", b"0200400000000000000003\x12\x3F", b"03"),
+        ("b",     2, 8, "nibbles", "F", b"02004000000000000000\x00\x03\x12\x3F", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "F", b"02004000000000000000\x12\x3F", b""),
+        ("ascii", 2, 8, "nibbles", "01", b"0200400000000000000003\x12\x30", b"03"),
+        ("b",     2, 8, "nibbles", "01", b"02004000000000000000\x00\x03\x12\x30", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "01", b"02004000000000000000\x12\x30", b""),
+        ("ascii", 2, 8, "nibbles", "F1", b"0200400000000000000003\x12\x3F", b"03"),
+        ("b",     2, 8, "nibbles", "F1", b"02004000000000000000\x00\x03\x12\x3F", b"\x00\x03"),
+        ("ascii", 0, 3, "nibbles", "F1", b"02004000000000000000\x12\x3F", b""),
+    ],
+)
+# fmt: on
+def test_decode_nibbles_right_pad(
+    len_enc: str,
+    len_type: int,
+    max_len: int,
+    len_count: str,
+    pad: str,
+    data: bytes,
+    result_f2_len: bytes,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default)
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["2"]["data_enc"] = "b"
+    spec["2"]["len_enc"] = len_enc
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
+    spec["2"]["len_count"] = len_count
+    spec["2"]["right_pad"] = pad
+
+    decoded, encoded = iso8583.decode(data, spec)
+
+    assert decoded["2"] == "123"
+    assert encoded["2"]["len"] == result_f2_len
+
+
+def test_decode_nibbles_odd_no_pad() -> None:
+    spec = copy.deepcopy(iso8583.specs.default)
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["2"]["data_enc"] = "b"
+    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_type"] = 2
+    spec["2"]["max_len"] = 8
+    spec["2"]["len_count"] = "nibbles"
+
+    data = b"02004000000000000000\x00\x03\x12\x30"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Field data is 4 nibbles, expecting 3: field 2 pos 22",
+    ):
+        iso8583.decode(data, spec=spec)
 
 
 def test_encode_nibbles_variable_over_max() -> None:

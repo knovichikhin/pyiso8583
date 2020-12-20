@@ -341,7 +341,7 @@ def _encode_field(
         if spec[field_key]["data_enc"] == "b":
             if len(doc_dec[field_key]) & 1 and len_count == "nibbles":
                 doc_enc[field_key]["data"] = bytes.fromhex(
-                    _pad_field(doc_dec, field_key, spec)
+                    _add_pad_field(doc_dec, field_key, spec)
                 )
             else:
                 doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
@@ -417,7 +417,7 @@ def _encode_field(
     return doc_enc[field_key]["len"] + doc_enc[field_key]["data"]
 
 
-def _pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
+def _add_pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
     r"""Pad a BCD or hex field from the left or right.
 
     Parameters
