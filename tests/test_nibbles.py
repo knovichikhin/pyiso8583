@@ -152,3 +152,41 @@ def test_decode_nibbles_variable_missing() -> None:
         match="Field data is 0 nibbles, expecting 4: field 2 pos 22",
     ):
         iso8583.decode(s, spec=spec)
+
+
+def test_decode_nibbles_fixed_partial() -> None:
+    """Fixed field is provided partially"""
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["2"]["data_enc"] = "ascii"
+    spec["2"]["len_enc"] = "ascii"
+    spec["2"]["len_type"] = 0
+    spec["2"]["max_len"] = 4
+    spec["2"]["len_count"] = "nibbles"
+
+    s = b"020040000000000000001"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Field data is 2 nibbles, expecting 4: field 2 pos 20",
+    ):
+        iso8583.decode(s, spec=spec)
+
+
+def test_decode_nibbles_fixed_missing() -> None:
+    """Fixed field is missing"""
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["2"]["data_enc"] = "ascii"
+    spec["2"]["len_enc"] = "ascii"
+    spec["2"]["len_type"] = 0
+    spec["2"]["max_len"] = 4
+    spec["2"]["len_count"] = "nibbles"
+
+    s = b"02004000000000000000"
+    with pytest.raises(
+        iso8583.DecodeError,
+        match="Field data is 0 nibbles, expecting 4: field 2 pos 20",
+    ):
+        iso8583.decode(s, spec=spec)
