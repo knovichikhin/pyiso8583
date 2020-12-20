@@ -339,7 +339,12 @@ def _encode_field(
     try:
         # Binary data: either hex or BCD
         if spec[field_key]["data_enc"] == "b":
-            doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
+            if len(doc_dec[field_key]) & 1 and len_count == "nibbles":
+                doc_enc[field_key]["data"] = bytes.fromhex(
+                    _pad_field(doc_dec, field_key, spec)
+                )
+            else:
+                doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
 
             # Encoded field length can be in bytes or half bytes (nibbles)
             if len_count == "nibbles":
@@ -410,3 +415,32 @@ def _encode_field(
         ) from None
 
     return doc_enc[field_key]["len"] + doc_enc[field_key]["data"]
+
+
+def _pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
+    r"""Pad a BCD or hex field from the left or right.
+
+    Parameters
+    ----------
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    field_key : str
+        Field ID to pad
+    spec : dict
+        A Python dict defining ISO8583 specification.
+        See :mod:`iso8583.specs` module for examples.
+
+    Returns
+    -------
+    str
+        Padded field data
+    """
+    pad: str = spec[field_key].get("left_pad", "")[:1]
+    if len(pad) > 0:
+        return pad + doc_dec[field_key]
+
+    pad = spec[field_key].get("right_pad", "")[:1]
+    if len(pad) > 0:
+        return doc_dec[field_key] + pad
+
+    return doc_dec[field_key]

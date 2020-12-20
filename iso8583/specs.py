@@ -12,8 +12,8 @@ Supported fields:
 - **1** - Secondary Bitmap
 - **2** .. **128** - Regular fields
 
-Field Properties
-----------------
+Mandatory Field Properties
+--------------------------
 Each field defines these properties:
 
 - **data_enc** - field's data encoding type, where:
@@ -51,19 +51,38 @@ Each field defines these properties:
   |  LLLLVAR     |          ``4`` |                ``2`` |
   +--------------+----------------+----------------------+
 
-- **len_count*** (optional) - specifies if field's length is measured
-  in bytes or nibbles (half bytes). This parameter affects **max_len**.
-
-  - Use ``bytes`` (default) to measure field length in bytes.
-  - Use ``nibbles` to measure field length if nibbles (half bytes).
-
 - **max_len** - field's maximum length in bytes or nibbles. For fixed fields
   **max_len** defines the length of the field.
 
 - **desc** - field's description that's printed in a pretty format.
   **desc** plays no role in encoding or decoding data. It's safe to omit it
-  from the specifications. If omitted :func:`iso8583.pp` may or may not work
-  as expected.
+  from the specifications. However, if omitted :func:`iso8583.pp` may or may
+  not work as expected.
+
+Optional Field Properties
+-------------------------
+Each field may define these additional properties as needed:
+
+- **len_count** - specifies if field's length is measured
+  in bytes or nibbles (half bytes). This parameter affects **max_len**.
+
+  - Use ``bytes`` (default) to measure field length in bytes.
+  - Use ``nibbles`` to measure field length if nibbles (half bytes).
+
+- **left_pad** - specifies pad character to be added/removed on the left side
+  of an odd binary or BCD field without this character being included into
+  field length. Valid pad character is ``0-9`` for BCD fields and ``0-F``
+  for binary fields. This option is used only when **data_enc** is set to
+  ``b`` and **len_count** is set to ``nibbles``. This option is meant for
+  specifications that require odd length binary or BCD data.
+  For example, a Primary Account Number encoded as BCD can have odd length.
+  In that case, it will have to be padded to be encoded correctly. At the
+  same time the field length will indicate actual number of PAN digits
+  (nibbles) without the pad character.
+
+- **right_pad** - exactly the same as **left_pad** but on the right side.
+  Specify either **left_pad** or **right_pad**. If both are specified at
+  the same time then **left_pad** takes precedence.
 
 Sample Field Specifications
 ---------------------------
