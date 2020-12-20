@@ -410,6 +410,9 @@ def _decode_field(
     """
     len_type = spec[field_key]["len_type"]
 
+    # Optional field added in v2.1. Prior specs do not have it.
+    len_count = spec[field_key].get("len_count", "bytes")
+
     doc_dec[field_key] = ""
     doc_enc[field_key] = {"len": bytes(s[idx : idx + len_type]), "data": b""}
 
@@ -423,20 +426,17 @@ def _decode_field(
             field_key,
         ) from None
 
-    # This is an optional field added in v2.1.
-    # Prior specs do not have it.
-    len_count = spec[field_key].get("len_count", "bytes")
-
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
     if len_type == 0:
         enc_field_len: int = spec[field_key]["max_len"]
+    # Variable field length
     else:
         try:
-            # Binary data: either hex or BCD
+            # BCD length
             if spec[field_key]["len_enc"] == "b":
                 enc_field_len = int(s[idx : idx + len_type].hex(), 10)
-            # Text data
+            # Text length
             else:
                 enc_field_len = int(
                     s[idx : idx + len_type].decode(spec[field_key]["len_enc"]), 10
@@ -446,21 +446,15 @@ def _decode_field(
                 f"Failed to decode length ({e})", s, doc_dec, doc_enc, idx, field_key
             ) from None
 
-        # Encoded field length can be in bytes or half bytes (nibbles)
-        if len_count == "nibbles":
-            enc_field_len = enc_field_len // 2
-        else:
-            enc_field_len = enc_field_len
-
-    if enc_field_len > spec[field_key]["max_len"]:
-        raise DecodeError(
-            f"Field data is {enc_field_len} bytes, larger than maximum {spec[field_key]['max_len']}",
-            s,
-            doc_dec,
-            doc_enc,
-            idx,
-            field_key,
-        ) from None
+        if enc_field_len > spec[field_key]["max_len"]:
+            raise DecodeError(
+                f"Field data is {enc_field_len} {len_count}, larger than maximum {spec[field_key]['max_len']}",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                field_key,
+            ) from None
 
     idx += len_type
 
@@ -468,12 +462,23 @@ def _decode_field(
     if enc_field_len == 0:
         return idx
 
-    # Parse field data
-    doc_enc[field_key]["data"] = bytes(s[idx : idx + enc_field_len])
+    # Encoded field length can be in bytes or half bytes (nibbles)
+    # Convert nibbles to bytes if needed
+    if len_count == "nibbles":
+        byte_field_len = enc_field_len // 2
+    else:
+        byte_field_len = enc_field_len
 
-    if len(doc_enc[field_key]["data"]) != enc_field_len:
+    # Parse field data
+    doc_enc[field_key]["data"] = bytes(s[idx : idx + byte_field_len])
+    if len(doc_enc[field_key]["data"]) != byte_field_len:
+        if len_count == "nibbles":
+            actual_field_len = len(doc_enc[field_key]["data"]) * 2
+        else:
+            actual_field_len = len(doc_enc[field_key]["data"])
+
         raise DecodeError(
-            f"Field data is {len(doc_enc[field_key]['data'])} bytes, expecting {enc_field_len}",
+            f"Field data is {actual_field_len} {len_count}, expecting {enc_field_len}",
             s,
             doc_dec,
             doc_enc,
@@ -493,4 +498,4 @@ def _decode_field(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, field_key
         ) from None
 
-    return idx + enc_field_len
+    return idx + byte_field_len

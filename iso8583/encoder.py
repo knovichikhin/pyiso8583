@@ -333,8 +333,7 @@ def _encode_field(
     # Encode field data
     doc_enc[field_key] = {"len": b"", "data": b""}
 
-    # This is an optional field added in v2.1.
-    # Prior specs do not have it.
+    # Optional field added in v2.1. Prior specs do not have it.
     len_count = spec[field_key].get("len_count", "bytes")
 
     try:
@@ -369,7 +368,7 @@ def _encode_field(
     if len_type == 0:
         if enc_field_len != spec[field_key]["max_len"]:
             raise EncodeError(
-                f"Field data is {enc_field_len} bytes, expecting {spec[field_key]['max_len']}",
+                f"Field data is {enc_field_len} {len_count}, expecting {spec[field_key]['max_len']}",
                 doc_dec,
                 doc_enc,
                 field_key,
@@ -382,7 +381,7 @@ def _encode_field(
 
     if enc_field_len > spec[field_key]["max_len"]:
         raise EncodeError(
-            f"Field data is {enc_field_len} bytes, larger than maximum {spec[field_key]['max_len']}",
+            f"Field data is {enc_field_len} {len_count}, larger than maximum {spec[field_key]['max_len']}",
             doc_dec,
             doc_enc,
             field_key,
