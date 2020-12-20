@@ -305,7 +305,7 @@ def _encode_bitmaps(
 def _encode_field(
     doc_dec: DecodedDict, doc_enc: EncodedDict, field_key: str, spec: SpecDict
 ) -> bytes:
-    r"""Encode ISO8583 individual field from `d[field]`.
+    r"""Encode ISO8583 individual field from `doc_dec[field_key]`.
 
     Parameters
     ----------
@@ -333,26 +333,43 @@ def _encode_field(
     # Encode field data
     doc_enc[field_key] = {"len": b"", "data": b""}
 
+    # This is an optional field added in v2.1.
+    # Prior specs do not have it.
+    len_count = spec[field_key].get("len_count", "bytes")
+
     try:
+        # Binary data: either hex or BCD
         if spec[field_key]["data_enc"] == "b":
             doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
+
+            # Encoded field length can be in bytes or half bytes (nibbles)
+            if len_count == "nibbles":
+                enc_field_len = len(doc_dec[field_key])
+            else:
+                enc_field_len = len(doc_enc[field_key]["data"])
+        # Text data
         else:
             doc_enc[field_key]["data"] = doc_dec[field_key].encode(
                 spec[field_key]["data_enc"]
             )
+
+            # Encoded field length can be in bytes or half bytes (nibbles)
+            if len_count == "nibbles":
+                enc_field_len = len(doc_enc[field_key]["data"]) * 2
+            else:
+                enc_field_len = len(doc_enc[field_key]["data"])
     except Exception as e:
         raise EncodeError(
             f"Failed to encode ({e})", doc_dec, doc_enc, field_key
         ) from None
 
     len_type = spec[field_key]["len_type"]
-    f_len = len(doc_enc[field_key]["data"])
 
     # Handle fixed length field. No need to calculate length.
     if len_type == 0:
-        if f_len != spec[field_key]["max_len"]:
+        if enc_field_len != spec[field_key]["max_len"]:
             raise EncodeError(
-                f"Field data is {f_len} bytes, expecting {spec[field_key]['max_len']}",
+                f"Field data is {enc_field_len} bytes, expecting {spec[field_key]['max_len']}",
                 doc_dec,
                 doc_enc,
                 field_key,
@@ -363,9 +380,9 @@ def _encode_field(
 
     # Continue with variable length field.
 
-    if f_len > spec[field_key]["max_len"]:
+    if enc_field_len > spec[field_key]["max_len"]:
         raise EncodeError(
-            f"Field data is {f_len} bytes, larger than maximum {spec[field_key]['max_len']}",
+            f"Field data is {enc_field_len} bytes, larger than maximum {spec[field_key]['max_len']}",
             doc_dec,
             doc_enc,
             field_key,
@@ -381,11 +398,11 @@ def _encode_field(
             # BCD LLLVAR length \x09\x99 must be string "0999"
             # BCD LLLLVAR length \x99\x99 must be string "9999"
             doc_enc[field_key]["len"] = bytes.fromhex(
-                "{:0{len_type}d}".format(f_len, len_type=len_type * 2)
+                "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
             )
         else:
             doc_enc[field_key]["len"] = bytes(
-                "{:0{len_type}d}".format(f_len, len_type=len_type),
+                "{:0{len_type}d}".format(enc_field_len, len_type=len_type),
                 spec[field_key]["len_enc"],
             )
     except Exception as e:
