@@ -131,12 +131,10 @@ def _encode_header(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -
         return b""
 
     # Header data is a required field.
-    try:
-        doc_dec["h"]
-    except KeyError:
+    if "h" not in doc_dec:
         raise EncodeError(
             "Field data is required according to specifications", doc_dec, doc_enc, "h"
-        ) from None
+        )
 
     return _encode_field(doc_dec, doc_enc, "h", spec)
 
@@ -166,10 +164,8 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
     """
 
     # Message type is a required field.
-    try:
-        doc_dec["t"]
-    except KeyError:
-        raise EncodeError("Field data is required", doc_dec, doc_enc, "t") from None
+    if "t" not in doc_dec:
+        raise EncodeError("Field data is required", doc_dec, doc_enc, "t")
 
     # Message type is a set length in ISO8583
     if spec["t"]["data_enc"] == "b":
@@ -193,7 +189,7 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
             doc_dec,
             doc_enc,
             "t",
-        ) from None
+        )
 
     return doc_enc["t"]["data"]
 
@@ -247,7 +243,7 @@ def _encode_bitmaps(
             doc_dec,
             doc_enc,
             "p",
-        ) from None
+        )
 
     # Add secondary bitmap if any 65-128 fields are present
     if not fields.isdisjoint(range(65, 129)):
@@ -264,7 +260,7 @@ def _encode_bitmaps(
 
         # Place this particular field in a byte where it belongs.
         # E.g. field 8 belongs to byte 0, field 121 belongs to byte 15.
-        byte = int(f / 8)
+        byte = f // 8
 
         # Determine bit to enable. ISO8583 bitmaps are left-aligned.
         # E.g. fields 1, 9, 17, etc. enable bit 7 in bytes 0, 1, 2, etc.
@@ -305,7 +301,7 @@ def _encode_bitmaps(
 def _encode_field(
     doc_dec: DecodedDict, doc_enc: EncodedDict, field_key: str, spec: SpecDict
 ) -> bytes:
-    r"""Encode ISO8583 individual field from `d[field]`.
+    r"""Encode ISO8583 individual field from `doc_dec[field_key]`.
 
     Parameters
     ----------
@@ -333,43 +329,64 @@ def _encode_field(
     # Encode field data
     doc_enc[field_key] = {"len": b"", "data": b""}
 
+    # Optional field added in v2.1. Prior specs do not have it.
+    len_count = spec[field_key].get("len_count", "bytes")
+
     try:
+        # Binary data: either hex or BCD
         if spec[field_key]["data_enc"] == "b":
-            doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
+            if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
+                doc_enc[field_key]["data"] = bytes.fromhex(
+                    _add_pad_field(doc_dec, field_key, spec)
+                )
+            else:
+                doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
+
+            # Encoded field length can be in bytes or half bytes (nibbles)
+            if len_count == "nibbles":
+                enc_field_len = len(doc_dec[field_key])
+            else:
+                enc_field_len = len(doc_enc[field_key]["data"])
+        # Text data
         else:
             doc_enc[field_key]["data"] = doc_dec[field_key].encode(
                 spec[field_key]["data_enc"]
             )
+
+            # Encoded field length can be in bytes or half bytes (nibbles)
+            if len_count == "nibbles":
+                enc_field_len = len(doc_enc[field_key]["data"]) * 2
+            else:
+                enc_field_len = len(doc_enc[field_key]["data"])
     except Exception as e:
         raise EncodeError(
             f"Failed to encode ({e})", doc_dec, doc_enc, field_key
         ) from None
 
     len_type = spec[field_key]["len_type"]
-    f_len = len(doc_enc[field_key]["data"])
 
     # Handle fixed length field. No need to calculate length.
     if len_type == 0:
-        if f_len != spec[field_key]["max_len"]:
+        if enc_field_len != spec[field_key]["max_len"]:
             raise EncodeError(
-                f"Field data is {f_len} bytes, expecting {spec[field_key]['max_len']}",
+                f"Field data is {enc_field_len} {len_count}, expecting {spec[field_key]['max_len']}",
                 doc_dec,
                 doc_enc,
                 field_key,
-            ) from None
+            )
 
         doc_enc[field_key]["len"] = b""
         return doc_enc[field_key]["data"]
 
     # Continue with variable length field.
 
-    if f_len > spec[field_key]["max_len"]:
+    if enc_field_len > spec[field_key]["max_len"]:
         raise EncodeError(
-            f"Field data is {f_len} bytes, larger than maximum {spec[field_key]['max_len']}",
+            f"Field data is {enc_field_len} {len_count}, larger than maximum {spec[field_key]['max_len']}",
             doc_dec,
             doc_enc,
             field_key,
-        ) from None
+        )
 
     # Encode field length
     try:
@@ -381,11 +398,11 @@ def _encode_field(
             # BCD LLLVAR length \x09\x99 must be string "0999"
             # BCD LLLLVAR length \x99\x99 must be string "9999"
             doc_enc[field_key]["len"] = bytes.fromhex(
-                "{:0{len_type}d}".format(f_len, len_type=len_type * 2)
+                "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
             )
         else:
             doc_enc[field_key]["len"] = bytes(
-                "{:0{len_type}d}".format(f_len, len_type=len_type),
+                "{:0{len_type}d}".format(enc_field_len, len_type=len_type),
                 spec[field_key]["len_enc"],
             )
     except Exception as e:
@@ -394,3 +411,32 @@ def _encode_field(
         ) from None
 
     return doc_enc[field_key]["len"] + doc_enc[field_key]["data"]
+
+
+def _add_pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
+    r"""Pad a BCD or hex field from the left or right.
+
+    Parameters
+    ----------
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    field_key : str
+        Field ID to pad
+    spec : dict
+        A Python dict defining ISO8583 specification.
+        See :mod:`iso8583.specs` module for examples.
+
+    Returns
+    -------
+    str
+        Padded field data
+    """
+    pad: str = spec[field_key].get("left_pad", "")[:1]
+    if len(pad) > 0:
+        return pad + doc_dec[field_key]
+
+    pad = spec[field_key].get("right_pad", "")[:1]
+    if len(pad) > 0:
+        return doc_dec[field_key] + pad
+
+    return doc_dec[field_key]

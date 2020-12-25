@@ -128,7 +128,7 @@ def decode(
     if idx != len(s):
         raise DecodeError(
             "Extra data after last field", s, doc_dec, doc_enc, idx, field_key
-        ) from None
+        )
 
     return doc_dec, doc_enc
 
@@ -230,7 +230,7 @@ def _decode_type(
             doc_enc,
             idx,
             "t",
-        ) from None
+        )
 
     try:
         if spec["t"]["data_enc"] == "b":
@@ -299,7 +299,7 @@ def _decode_bitmaps(
             doc_enc,
             idx,
             "p",
-        ) from None
+        )
 
     try:
         if spec["p"]["data_enc"] == "b":
@@ -346,7 +346,7 @@ def _decode_bitmaps(
             doc_enc,
             idx,
             "1",
-        ) from None
+        )
 
     try:
         if spec["1"]["data_enc"] == "b":
@@ -410,6 +410,9 @@ def _decode_field(
     """
     len_type = spec[field_key]["len_type"]
 
+    # Optional field added in v2.1. Prior specs do not have it.
+    len_count = spec[field_key].get("len_count", "bytes")
+
     doc_dec[field_key] = ""
     doc_enc[field_key] = {"len": bytes(s[idx : idx + len_type]), "data": b""}
 
@@ -421,18 +424,21 @@ def _decode_field(
             doc_enc,
             idx,
             field_key,
-        ) from None
+        )
 
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
     if len_type == 0:
-        f_len: int = spec[field_key]["max_len"]
+        enc_field_len: int = spec[field_key]["max_len"]
+    # Variable field length
     else:
         try:
+            # BCD length
             if spec[field_key]["len_enc"] == "b":
-                f_len = int(s[idx : idx + len_type].hex(), 10)
+                enc_field_len = int(s[idx : idx + len_type].hex(), 10)
+            # Text length
             else:
-                f_len = int(
+                enc_field_len = int(
                     s[idx : idx + len_type].decode(spec[field_key]["len_enc"]), 10
                 )
         except Exception as e:
@@ -440,45 +446,122 @@ def _decode_field(
                 f"Failed to decode length ({e})", s, doc_dec, doc_enc, idx, field_key
             ) from None
 
-    if f_len > spec[field_key]["max_len"]:
-        raise DecodeError(
-            f"Field data is {f_len} bytes, larger than maximum {spec[field_key]['max_len']}",
-            s,
-            doc_dec,
-            doc_enc,
-            idx,
-            field_key,
-        ) from None
+        if enc_field_len > spec[field_key]["max_len"]:
+            raise DecodeError(
+                f"Field data is {enc_field_len} {len_count}, larger than maximum {spec[field_key]['max_len']}",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                field_key,
+            )
 
     idx += len_type
 
     # Do not parse zero-length field
-    if f_len == 0:
+    if enc_field_len == 0:
         return idx
 
-    # Parse field data
-    doc_enc[field_key]["data"] = bytes(s[idx : idx + f_len])
+    # Encoded field length can be in bytes or half bytes (nibbles)
+    # Convert nibbles to bytes if needed
+    if len_count == "nibbles":
+        if enc_field_len & 1:
+            byte_field_len = (enc_field_len + 1) // 2
+        else:
+            byte_field_len = enc_field_len // 2
+    else:
+        byte_field_len = enc_field_len
 
-    if len(doc_enc[field_key]["data"]) != f_len:
+    # Parse field data
+    doc_enc[field_key]["data"] = bytes(s[idx : idx + byte_field_len])
+    if len(doc_enc[field_key]["data"]) != byte_field_len:
+        if len_count == "nibbles":
+            actual_field_len = len(doc_enc[field_key]["data"]) * 2
+        else:
+            actual_field_len = len(doc_enc[field_key]["data"])
+
         raise DecodeError(
-            f"Field data is {len(doc_enc[field_key]['data'])} bytes, expecting {f_len}",
+            f"Field data is {actual_field_len} {len_count}, expecting {enc_field_len}",
             s,
             doc_dec,
             doc_enc,
             idx,
             field_key,
-        ) from None
+        )
 
     try:
         if spec[field_key]["data_enc"] == "b":
             doc_dec[field_key] = doc_enc[field_key]["data"].hex().upper()
+            if len_count == "nibbles" and enc_field_len & 1:
+                doc_dec[field_key] = _remove_pad_field(
+                    s, idx, doc_dec, doc_enc, field_key, spec, enc_field_len
+                )
         else:
             doc_dec[field_key] = doc_enc[field_key]["data"].decode(
                 spec[field_key]["data_enc"]
             )
+    except DecodeError:
+        raise
     except Exception as e:
         raise DecodeError(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, field_key
         ) from None
 
-    return idx + f_len
+    return idx + byte_field_len
+
+
+def _remove_pad_field(
+    s: Union[bytes, bytearray],
+    idx: int,
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    field_key: str,
+    spec: SpecDict,
+    enc_field_len: int,
+) -> str:
+    r"""Remove left or right pad from a BCD or hex field.
+
+    Parameters
+    ----------
+    s : bytes or bytearray
+        Encoded ISO8583 data
+    idx : int
+        Current index in ISO8583 byte array
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    doc_enc : dict
+        Dict containing encoded ISO8583 data
+    field_key : str
+        Field ID to remove pad from
+    spec : dict
+        A Python dict defining ISO8583 specification.
+        See :mod:`iso8583.specs` module for examples.
+    enc_field_len : int
+        Number of nibbles expected in the field
+
+    Returns
+    -------
+    str
+        Field data without pad
+
+    Raises
+    ------
+    DecodeError
+        An error decoding ISO8583 bytearray.
+    """
+    pad: str = spec[field_key].get("left_pad", "")[:1]
+    if len(pad) > 0 and doc_dec[field_key][:1] == pad:
+        return doc_dec[field_key][1:]
+
+    pad = spec[field_key].get("right_pad", "")[:1]
+    if len(pad) > 0 and doc_dec[field_key][-1:] == pad:
+        return doc_dec[field_key][:-1]
+
+    raise DecodeError(
+        f"Field data is {len(doc_dec[field_key])} nibbles, expecting {enc_field_len}",
+        s,
+        doc_dec,
+        doc_enc,
+        idx,
+        field_key,
+    )
