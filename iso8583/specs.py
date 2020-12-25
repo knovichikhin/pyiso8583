@@ -1,5 +1,5 @@
-r"""An ISO8583 spec is a Python dict instance. It describes how each field
-needs to be encoded or decoded.
+r"""An ISO8583 spec is a Python dictionary. It describes how each field
+needs to be encoded and decoded.
 
 Fields
 ------
@@ -18,21 +18,23 @@ Each field defines these properties:
 
 - **data_enc** - field's data encoding type, where:
 
-  - Use ``b`` for binary or BCD data. For example, ``ABCD`` hex string
-    is encoded as ``\xAB\xCD`` 2-byte value. Or ``1234`` numeric string
-    is encoded as ``\x12\x34`` 2-byte Binary-Coded Decimal (BCD) value.
+  - Use ``b`` for binary or Binary-Coded Decimal (BCD) data. For example,
+    ``ABCD`` hex string is encoded as ``\xAB\xCD`` 2-byte value. Or ``1234``
+    numeric string is encoded as ``\x12\x34`` 2-byte BCD value.
   - Otherwise, provide any valid Python encoding. For example, ``ascii`` or
     ``latin-1`` for ASCII data and ``cp500`` or similar for EBCDIC data.
+    For a list of possible encodings, see Python standard encodings:
+    https://docs.python.org/3/library/codecs.html#standard-encodings
 
 - **len_enc** - field's length encoding type. Follows the same rules as **data_enc**.
   Some fields, such as ICC data, could have binary data but ASCII length.
   This parameter does not affect fixed-length fields.
 
 - **len_type** - field's length type: fixed, LVAR, LLVAR, etc.
-  Expressed as number of bytes in field length. For example,
-  ASCII LLVAR length takes up 2 bytes (``b'00'`` - ``b'99'``).
-  BCD LLVAR length can take up only 1 byte (``b'\x00'`` - ``b'\x99'``).
-  **len_type** depends on the type of **len_enc** being used.
+  Expressed as a number of bytes in field length. For example,
+  ASCII LLVAR length takes up 2 bytes (``b'00' - b'99'``).
+  BCD LLVAR length can take up only 1 byte (``b'\x00' - b'\x99'``).
+  Therefore, **len_type** depends on the type of **len_enc** being used.
   BCD **len_enc** can fit higher length ranges in fewer bytes.
 
   +--------------+---------------------------------------+
@@ -72,15 +74,13 @@ Each field may define these additional properties as needed:
 - **left_pad** - specifies pad character to be added/removed on the left side
   of an odd binary or BCD field without this character being included into
   field length. Valid pad character is ``0-9`` for BCD fields and ``0-F``
-  for binary fields. This option is used only when **data_enc** is set to
-  ``b`` and **len_count** is set to ``nibbles``. This option is meant for
-  specifications that require odd length binary or BCD data.
-  For example, a Primary Account Number encoded as BCD can have odd length.
-  In that case, it will have to be padded to be encoded correctly. At the
-  same time the field length will indicate actual number of PAN digits
-  (nibbles) without the pad character.
+  for binary fields.
 
-- **right_pad** - exactly the same as **left_pad** but on the right side.
+  This option is used only when **data_enc** is set to ``b`` (binary/BCD)
+  and **len_count** is set to ``nibbles``. This option is meant for
+  specifications that require odd length binary or BCD data.
+
+- **right_pad** - same as **left_pad** but it pads on the right side.
   Specify either **left_pad** or **right_pad**. If both are specified at
   the same time then **left_pad** takes precedence.
 
@@ -106,7 +106,7 @@ Hex string primary bitmap::
         "desc": "Hex string bitmap, e.g 1234567890ABCDEF"
     }
 
-Field 2 that is a BCD fixed length field of 10 bytes::
+Field 2, a 10-byte BCD fixed length field::
 
     specification["2"] = {
         "data_enc": "b",
@@ -116,7 +116,7 @@ Field 2 that is a BCD fixed length field of 10 bytes::
         "desc": "BCD fixed field"
     }
 
-Field 3 that is an ASCII LLVAR field of maximum 20 bytes::
+Field 3, an ASCII LLVAR field of maximum 20 bytes::
 
     specification["3"] = {
         "data_enc": "ascii",
@@ -126,7 +126,7 @@ Field 3 that is an ASCII LLVAR field of maximum 20 bytes::
         "desc": "ASCII LLVAR field"
     }
 
-Field 4 that is an EBCDIC LLLVAR field of maximum 150 bytes::
+Field 4, an EBCDIC LLLVAR field of maximum 150 bytes::
 
     specification["4"] = {
         "data_enc": "cp500",
@@ -136,23 +136,38 @@ Field 4 that is an EBCDIC LLLVAR field of maximum 150 bytes::
         "desc": "EBCDIC LLLVAR field"
     }
 
-Field 5 that is an EBCDIC LLLVAR field of maximum 150 bytes::
+Field 5, a BCD LLVAR field measured in nibbles and left-padded with 0.
+The field is maximum 20 nibbles::
 
-    specification["4"] = {
-        "data_enc": "cp500",
-        "len_enc": "cp500",
-        "len_type": 3,
-        "max_len": 150,
-        "desc": "EBCDIC LLLVAR field"
+    specification["5"] = {
+        "data_enc": "b",
+        "len_enc": "b",
+        "len_type": 1,
+        "len_count": "nibbles",
+        "left_pad": "0",
+        "max_len": 20,
+        "desc": "BCD LLVAR field measured in nibbles, e.g. \x03\x01\x11"
+    }
+
+Field 6, a 3-nibble BCD fixed field right-padded with 0::
+
+    specification["6"] = {
+        "data_enc": "b",
+        "len_enc": "b",
+        "len_type": 0,
+        "len_count": "nibbles",
+        "right_pad": "0",
+        "max_len": 3,
+        "desc": "BCD fixed field measured in nibbles, e.g. \x11\x10"
     }
 
 Sample Message Specifications
 -----------------------------
 
-ASCII/BCD
-~~~~~~~~~
+ASCII/Binary
+~~~~~~~~~~~~
 
-Bitmaps, MACs, PIN, and ICC data are in BCD::
+Bitmaps, MACs, PIN, and ICC data are in binary::
 
     default = {
     "h":   {"data_enc": "ascii", "len_enc": "ascii", "len_type": 0, "max_len": 0,   "desc": "Message Header"},
@@ -429,8 +444,8 @@ All fields are in ASCII::
 
 """
 
-# ASCII/BCD
-# Bitmaps, MACs, PIN, and ICC data are in BCD
+# ASCII/Binary
+# Bitmaps, MACs, PIN, and ICC data are in binary
 default = {
     "h": {
         "data_enc": "ascii",

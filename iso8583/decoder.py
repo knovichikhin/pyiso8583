@@ -128,7 +128,7 @@ def decode(
     if idx != len(s):
         raise DecodeError(
             "Extra data after last field", s, doc_dec, doc_enc, idx, field_key
-        ) from None
+        )
 
     return doc_dec, doc_enc
 
@@ -230,7 +230,7 @@ def _decode_type(
             doc_enc,
             idx,
             "t",
-        ) from None
+        )
 
     try:
         if spec["t"]["data_enc"] == "b":
@@ -299,7 +299,7 @@ def _decode_bitmaps(
             doc_enc,
             idx,
             "p",
-        ) from None
+        )
 
     try:
         if spec["p"]["data_enc"] == "b":
@@ -346,7 +346,7 @@ def _decode_bitmaps(
             doc_enc,
             idx,
             "1",
-        ) from None
+        )
 
     try:
         if spec["1"]["data_enc"] == "b":
@@ -424,7 +424,7 @@ def _decode_field(
             doc_enc,
             idx,
             field_key,
-        ) from None
+        )
 
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
@@ -454,7 +454,7 @@ def _decode_field(
                 doc_enc,
                 idx,
                 field_key,
-            ) from None
+            )
 
     idx += len_type
 
@@ -487,7 +487,7 @@ def _decode_field(
             doc_enc,
             idx,
             field_key,
-        ) from None
+        )
 
     try:
         if spec[field_key]["data_enc"] == "b":
@@ -500,8 +500,8 @@ def _decode_field(
             doc_dec[field_key] = doc_enc[field_key]["data"].decode(
                 spec[field_key]["data_enc"]
             )
-    except DecodeError as e:
-        raise e from None
+    except DecodeError:
+        raise
     except Exception as e:
         raise DecodeError(
             f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, field_key
@@ -564,4 +564,4 @@ def _remove_pad_field(
         doc_enc,
         idx,
         field_key,
-    ) from None
+    )

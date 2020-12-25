@@ -131,12 +131,10 @@ def _encode_header(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -
         return b""
 
     # Header data is a required field.
-    try:
-        doc_dec["h"]
-    except KeyError:
+    if "h" not in doc_dec:
         raise EncodeError(
             "Field data is required according to specifications", doc_dec, doc_enc, "h"
-        ) from None
+        )
 
     return _encode_field(doc_dec, doc_enc, "h", spec)
 
@@ -166,10 +164,8 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
     """
 
     # Message type is a required field.
-    try:
-        doc_dec["t"]
-    except KeyError:
-        raise EncodeError("Field data is required", doc_dec, doc_enc, "t") from None
+    if "t" not in doc_dec:
+        raise EncodeError("Field data is required", doc_dec, doc_enc, "t")
 
     # Message type is a set length in ISO8583
     if spec["t"]["data_enc"] == "b":
@@ -193,7 +189,7 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
             doc_dec,
             doc_enc,
             "t",
-        ) from None
+        )
 
     return doc_enc["t"]["data"]
 
@@ -247,7 +243,7 @@ def _encode_bitmaps(
             doc_dec,
             doc_enc,
             "p",
-        ) from None
+        )
 
     # Add secondary bitmap if any 65-128 fields are present
     if not fields.isdisjoint(range(65, 129)):
@@ -264,7 +260,7 @@ def _encode_bitmaps(
 
         # Place this particular field in a byte where it belongs.
         # E.g. field 8 belongs to byte 0, field 121 belongs to byte 15.
-        byte = int(f / 8)
+        byte = f // 8
 
         # Determine bit to enable. ISO8583 bitmaps are left-aligned.
         # E.g. fields 1, 9, 17, etc. enable bit 7 in bytes 0, 1, 2, etc.
@@ -339,7 +335,7 @@ def _encode_field(
     try:
         # Binary data: either hex or BCD
         if spec[field_key]["data_enc"] == "b":
-            if len(doc_dec[field_key]) & 1 and len_count == "nibbles":
+            if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
                 doc_enc[field_key]["data"] = bytes.fromhex(
                     _add_pad_field(doc_dec, field_key, spec)
                 )
@@ -377,7 +373,7 @@ def _encode_field(
                 doc_dec,
                 doc_enc,
                 field_key,
-            ) from None
+            )
 
         doc_enc[field_key]["len"] = b""
         return doc_enc[field_key]["data"]
@@ -390,7 +386,7 @@ def _encode_field(
             doc_dec,
             doc_enc,
             field_key,
-        ) from None
+        )
 
     # Encode field length
     try:
