@@ -1,27 +1,30 @@
 iso8583 - a Python package for parsing ISO8583 data
-----------------------------------------------------
+===================================================
 
 |pypi| |docs| |coverage|
 
-`iso8583` package serializes and deserializes ISO8583 data between a ``bytes`` or
-``bytearray`` instance containing ISO8583 data and a Python ``dict``.
+``iso8583`` package serializes and deserializes ISO8583 data between
+raw ``bytes`` ISO8583 data and a regular Python ``dict``.
 
-`iso8583` package supports custom `specifications <https://pyiso8583.readthedocs.io/en/latest/specifications.html>`_
-that can define
+``iso8583`` package supports custom `specifications <https://pyiso8583.readthedocs.io/en/latest/specifications.html>`_
+that can define:
 
-    * Field length and data encoding, such as BCD, ASCII, EBCDIC, etc.
-    * Field type, such as fixed, LLVAR, LLLVAR, etc.
-    * Maximum length
-    * Optional field description
+- Field length and data encoding, such as BCD, ASCII, EBCDIC, etc.
+- Field length count measured in bytes or nibbles.
+- Field type, such as fixed, LLVAR, LLLVAR, etc.
+- Maximum length
+- Optional field description
 
 Multiple specifications can co-exist to support ISO8583 messages for POS, ATM,
-file actions, and so on. Simply define a new specification dictionary. `iso8583`
-package includes a starter specification in `iso8583.specs` module that can be
+file actions, and so on. Simply define a new specification dictionary. ``iso8583``
+package includes a starter specification in ``iso8583.specs`` module that can be
 used as a base to create own custom/proprietary specifications.
 
-Additional information is available on `RTD <http://pyiso8583.readthedocs.org>`_.
+Additional information is available on `Read The Docs <http://pyiso8583.readthedocs.org>`_.
 
-Install::
+Install:
+
+.. code-block::
 
     pip install pyiso8583
 
@@ -97,7 +100,7 @@ to pretty print ISO8583 message.
 Contribute
 ----------
 
-`iso8583` package is hosted on `GitHub <https://github.com/knovichikhin/pyiso8583>`_.
+``iso8583`` package is hosted on `GitHub <https://github.com/knovichikhin/pyiso8583>`_.
 
 Feel free to fork and send contributions over.
 
