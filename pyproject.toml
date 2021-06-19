@@ -17,7 +17,7 @@ testpaths = [
 [tool.coverage.run]
 branch = true
 source = [
-    "pyiso8583"
+    "iso8583"
 ]
 omit = [
     "tests/*",
