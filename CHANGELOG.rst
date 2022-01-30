@@ -1,3 +1,7 @@
+Unreleased
+----------
+- Provide friendlier error messages when failing to decode field length.
+
 2.1.0 - 2020-12-24
 ------------------
 - Added support for fields measured in nibbles (half-bytes).

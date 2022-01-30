@@ -432,19 +432,55 @@ def _decode_field(
         enc_field_len: int = spec[field_key]["max_len"]
     # Variable field length
     else:
-        try:
-            # BCD length
-            if spec[field_key]["len_enc"] == "b":
+        # BCD length
+        if spec[field_key]["len_enc"] == "b":
+            try:
                 enc_field_len = int(s[idx : idx + len_type].hex(), 10)
-            # Text length
-            else:
-                enc_field_len = int(
-                    s[idx : idx + len_type].decode(spec[field_key]["len_enc"]), 10
+            except Exception:
+                raise DecodeError(
+                    "Failed to decode field length, invalid BCD data",
+                    s,
+                    doc_dec,
+                    doc_enc,
+                    idx,
+                    field_key,
+                ) from None
+        # Text length
+        else:
+            try:
+                decoded_length = s[idx : idx + len_type].decode(
+                    spec[field_key]["len_enc"]
                 )
-        except Exception as e:
-            raise DecodeError(
-                f"Failed to decode length ({e})", s, doc_dec, doc_enc, idx, field_key
-            ) from None
+            except LookupError:
+                raise DecodeError(
+                    "Failed to decode field length, unknown encoding specified",
+                    s,
+                    doc_dec,
+                    doc_enc,
+                    idx,
+                    field_key,
+                ) from None
+            except Exception:
+                raise DecodeError(
+                    "Failed to decode field length, invalid data",
+                    s,
+                    doc_dec,
+                    doc_enc,
+                    idx,
+                    field_key,
+                ) from None
+
+            try:
+                enc_field_len = int(decoded_length)
+            except Exception:
+                raise DecodeError(
+                    "Failed to decode field length, non-numeric data",
+                    s,
+                    doc_dec,
+                    doc_enc,
+                    idx,
+                    field_key,
+                ) from None
 
         if enc_field_len > spec[field_key]["max_len"]:
             raise DecodeError(
