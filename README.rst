@@ -22,11 +22,16 @@ used as a base to create own custom/proprietary specifications.
 
 Additional information is available on `Read The Docs <http://pyiso8583.readthedocs.org>`_.
 
-Install:
+Installation
+------------
+
+``iso8583`` is published on `PyPI`__ as ``pyiso8583`` and can be installed from there:
 
 .. code-block::
 
     pip install pyiso8583
+
+__ https://pypi.org/project/pyiso8583/
 
 Encoding & Decoding
 -------------------
