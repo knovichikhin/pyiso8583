@@ -1007,7 +1007,7 @@ def test_primary_bitmap_negative_incorrect_encoding():
     s = b"header02100000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .unknown encoding: invalid.: field p pos 10",
+        match="Failed to decode field, unknown encoding specified: field p pos 10",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1026,7 +1026,7 @@ def test_primary_bitmap_negative_incorrect_ascii_data():
     s = b"header0210\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field p pos 10",
+        match="Failed to decode field, invalid data: field p pos 10",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1045,7 +1045,7 @@ def test_primary_bitmap_negative_incorrect_ascii_hex():
     s = b"header0210incorrecthexdata"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .non-hexadecimal number found in fromhex.. arg at position 0.: field p pos 10",
+        match="Failed to decode field, non-hex data: field p pos 10",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1318,7 +1318,7 @@ def test_secondary_bitmap_negative_incorrect_encoding():
     s = b"header021080000000000000000000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .unknown encoding: invalid.: field 1 pos 26",
+        match="Failed to decode field, unknown encoding specified: field 1 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1338,7 +1338,7 @@ def test_secondary_bitmap_negative_incorrect_ascii_data():
     s = b"header02108000000000000000\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field 1 pos 26",
+        match="Failed to decode field, invalid data: field 1 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1358,7 +1358,7 @@ def test_secondary_bitmap_negative_incorrect_ascii_hex():
     s = b"header02108000000000000000incorrecthexdata"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .non-hexadecimal number found in fromhex.. arg at position 0.: field 1 pos 26",
+        match="Failed to decode field, non-hex data: field 1 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 

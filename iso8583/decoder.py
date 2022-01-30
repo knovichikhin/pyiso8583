@@ -315,17 +315,42 @@ def _decode_bitmaps(
             "p",
         )
 
-    try:
-        if spec["p"]["data_enc"] == "b":
-            doc_dec["p"] = s[idx : idx + f_len].hex().upper()
-            bm = s[idx : idx + f_len]
-        else:
+    if spec["p"]["data_enc"] == "b":
+        doc_dec["p"] = s[idx : idx + f_len].hex().upper()
+        bm = s[idx : idx + f_len]
+    else:
+        try:
             doc_dec["p"] = s[idx : idx + f_len].decode(spec["p"]["data_enc"])
+        except LookupError:
+            raise DecodeError(
+                "Failed to decode field, unknown encoding specified",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "p",
+            ) from None
+        except Exception:
+            raise DecodeError(
+                "Failed to decode field, invalid data",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "p",
+            ) from None
+
+        try:
             bm = bytes.fromhex(doc_dec["p"])
-    except Exception as e:
-        raise DecodeError(
-            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "p"
-        ) from None
+        except Exception:
+            raise DecodeError(
+                "Failed to decode field, non-hex data",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "p",
+            ) from None
 
     fields.update(
         [
@@ -362,17 +387,42 @@ def _decode_bitmaps(
             "1",
         )
 
-    try:
-        if spec["1"]["data_enc"] == "b":
-            doc_dec["1"] = s[idx : idx + f_len].hex().upper()
-            bm = s[idx : idx + f_len]
-        else:
+    if spec["1"]["data_enc"] == "b":
+        doc_dec["1"] = s[idx : idx + f_len].hex().upper()
+        bm = s[idx : idx + f_len]
+    else:
+        try:
             doc_dec["1"] = s[idx : idx + f_len].decode(spec["1"]["data_enc"])
+        except LookupError:
+            raise DecodeError(
+                "Failed to decode field, unknown encoding specified",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "1",
+            ) from None
+        except Exception:
+            raise DecodeError(
+                "Failed to decode field, invalid data",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "1",
+            ) from None
+
+        try:
             bm = bytes.fromhex(doc_dec["1"])
-    except Exception as e:
-        raise DecodeError(
-            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "1"
-        ) from None
+        except Exception:
+            raise DecodeError(
+                "Failed to decode field, non-hex data",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "1",
+            ) from None
 
     fields.update(
         [
