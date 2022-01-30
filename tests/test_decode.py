@@ -88,7 +88,7 @@ def test_header_length_negative_missing():
     s = b"header02000000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .invalid literal for int.. with base 10: 'he'.: field h pos 0",
+        match="Failed to decode field length, non-numeric data: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -107,7 +107,7 @@ def test_header_length_negative_partial():
     s = b"1header02000000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .invalid literal for int.. with base 10: '1h'.: field h pos 0",
+        match="Failed to decode field length, non-numeric data: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -127,7 +127,7 @@ def test_header_length_negative_incorrect_encoding():
     s = b"06header02000000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .unknown encoding: invalid.: field h pos 0",
+        match="Failed to decode field length, unknown encoding specified: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -147,7 +147,7 @@ def test_header_length_negative_incorrect_ascii_data():
     s = b"\xff\xffheader02000000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field h pos 0",
+        match="Failed to decode field length, invalid data: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -167,7 +167,7 @@ def test_header_length_negative_incorrect_not_numeric():
     s = b"ggheader02000000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .invalid literal for int.. with base 10: 'gg'.: field h pos 0",
+        match="Failed to decode field length, non-numeric data: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -175,9 +175,7 @@ def test_header_length_negative_incorrect_not_numeric():
 def test_header_length_negative_incorrect_bcd_data():
     """
     BCD Header length is required and provided.
-    However, the data is not hex.
-    Note: this passes, "g" is valid hex data when decoding.
-    It will fail on field parsing, because not sufficient field data was provided
+    However, the data is not numeric.
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_enc"] = "b"
@@ -186,9 +184,10 @@ def test_header_length_negative_incorrect_bcd_data():
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
 
-    s = b"gheader02000000000000000000"
+    s = b"\xffheader02000000000000000000"
     with pytest.raises(
-        iso8583.DecodeError, match="Field data is 26 bytes, expecting 67: field h pos 1"
+        iso8583.DecodeError,
+        match="Failed to decode field length, invalid BCD data: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1562,7 +1561,7 @@ def test_field_length_negative_incorrect_encoding():
     s = b"header0200400000000000000010"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .unknown encoding: invalid.: field 2 pos 26",
+        match="Failed to decode field length, unknown encoding specified: field 2 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1585,7 +1584,7 @@ def test_field_length_negative_incorrect_ascii_data():
     s = b"header02004000000000000000\xff\xff"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field 2 pos 26",
+        match="Failed to decode field length, invalid data: field 2 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1608,7 +1607,7 @@ def test_field_length_negative_incorrect_not_numeric():
     s = b"header02004000000000000000gg"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode length .invalid literal for int.. with base 10: 'gg'.: field 2 pos 26",
+        match="Failed to decode field length, non-numeric data: field 2 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1616,9 +1615,7 @@ def test_field_length_negative_incorrect_not_numeric():
 def test_field_length_negative_incorrect_bcd_data():
     """
     BCD field length is required and provided.
-    However, the data is not hex.
-    Note: this passes, "g" is valid hex data when decoding.
-    It will fail on field parsing, because no field was provided
+    However, the data is not numeric.
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
@@ -1630,9 +1627,10 @@ def test_field_length_negative_incorrect_bcd_data():
     spec["2"]["len_type"] = 1
     spec["2"]["max_len"] = 99
 
-    s = b"header02004000000000000000g"
+    s = b"header02004000000000000000\xff"
     with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 67: field 2 pos 27"
+        iso8583.DecodeError,
+        match="Failed to decode field length, invalid BCD data: field 2 pos 26",
     ):
         iso8583.decode(s, spec=spec)
 
