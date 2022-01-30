@@ -62,7 +62,7 @@ Use `iso8583.pp` to pretty print ISO8583 message.
     2   Primary Account Number (PAN)  : b'10' b'1234567890'
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __all__ = [
     "pp",
     "decode",
