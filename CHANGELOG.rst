@@ -1,6 +1,7 @@
 Unreleased
 ----------
 - Provide friendlier error messages when failing to decode field, field length, and bitmap.
+- Provide friendlier error messages when failing to encode field, field length, and bitmap.
 
 2.1.0 - 2020-12-24
 ------------------
