@@ -625,7 +625,7 @@ def test_variable_header_bdc_over_max():
     BDC variable header is required and over max is provided
     """
     spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_enc"] = "bcd"
     spec["h"]["len_type"] = 2
     spec["h"]["max_len"] = 2
     spec["t"]["data_enc"] = "ascii"
@@ -645,7 +645,7 @@ def test_variable_header_bdc_odd():
     BDC variable header is required and odd length is provided
     """
     spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_enc"] = "bcd"
     spec["h"]["len_type"] = 2
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
@@ -728,12 +728,21 @@ def test_variable_header_bdc_ebcdic_length():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_variable_header_bcd_present():
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc"],
+    [
+        ("b",),
+        ("bcd",),
+    ],
+)
+# fmt: on
+def test_variable_header_bcd_present(len_enc: str):
     """
     BCD variable header is required and provided
     """
     spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_enc"] = len_enc
     spec["h"]["len_type"] = 2
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
@@ -761,12 +770,21 @@ def test_variable_header_bcd_present():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_variable_header_bcd_present_zero_length():
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc"],
+    [
+        ("b",),
+        ("bcd",),
+    ],
+)
+# fmt: on
+def test_variable_header_bcd_present_zero_length(len_enc: str):
     """
     BCD zero-length variable header is required and provided
     """
     spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_enc"] = len_enc
     spec["h"]["len_type"] = 2
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
@@ -2290,7 +2308,7 @@ def test_variable_field_bdc_over_max():
     spec["2"]["len_type"] = 2
     spec["2"]["max_len"] = 5
     spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_enc"] = "bcd"
 
     doc_dec = {"h": "header", "t": "0210", "2": "123456789012"}
 
@@ -2313,7 +2331,7 @@ def test_variable_field_bdc_odd():
     spec["2"]["len_type"] = 2
     spec["2"]["max_len"] = 10
     spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_enc"] = "bcd"
 
     doc_dec = {"h": "header", "t": "0210", "2": "12345"}
 
@@ -2406,7 +2424,16 @@ def test_variable_field_bdc_ebcdic_length():
     assert doc_dec.keys() == set(["h", "t", "p", "2"])
 
 
-def test_variable_field_bcd_present():
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc"],
+    [
+        ("b",),
+        ("bcd",),
+    ],
+)
+# fmt: on
+def test_variable_field_bcd_present(len_enc: str) -> None:
     """
     BCD variable field is required and provided
     """
@@ -2418,7 +2445,7 @@ def test_variable_field_bcd_present():
     spec["2"]["len_type"] = 2
     spec["2"]["max_len"] = 10
     spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_enc"] = len_enc
 
     doc_dec = {"h": "header", "t": "0210", "2": "1122"}
 
@@ -2446,7 +2473,16 @@ def test_variable_field_bcd_present():
     assert doc_dec.keys() == set(["h", "t", "p", "2"])
 
 
-def test_variable_field_bcd_present_zero_length():
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc"],
+    [
+        ("b",),
+        ("bcd",),
+    ],
+)
+# fmt: on
+def test_variable_field_bcd_present_zero_length(len_enc: str):
     """
     BCD zero-length variable field is required and provided
     """
@@ -2458,7 +2494,7 @@ def test_variable_field_bcd_present_zero_length():
     spec["2"]["len_type"] = 2
     spec["2"]["max_len"] = 10
     spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_enc"] = len_enc
 
     doc_dec = {"h": "header", "t": "0210", "2": ""}
 

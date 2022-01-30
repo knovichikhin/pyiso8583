@@ -497,7 +497,7 @@ def _decode_field(
     # Variable field length
     else:
         # BCD length
-        if spec[field_key]["len_enc"] == "b":
+        if spec[field_key]["len_enc"] in {"b", "bcd"}:
             try:
                 enc_field_len = int(s[idx : idx + len_type].hex(), 10)
             except Exception:
