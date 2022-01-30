@@ -419,7 +419,7 @@ def test_header_negative_incorrect_encoding():
     s = b"header02100000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .unknown encoding: invalid.: field h pos 0",
+        match="Failed to decode field, unknown encoding specified: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -438,7 +438,7 @@ def test_header_negative_incorrect_ascii_data():
     s = b"\xff\xff\xff\xff\xff\xff02100000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field h pos 0",
+        match="Failed to decode field, invalid data: field h pos 0",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -665,7 +665,7 @@ def test_type_negative_incorrect_encoding():
     s = b"header02100000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .unknown encoding: invalid.: field t pos 6",
+        match="Failed to decode field, unknown encoding specified: field t pos 6",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -684,7 +684,7 @@ def test_type_negative_incorrect_ascii_data():
     s = b"header\xff\xff\xff\xff0000000000000000"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field t pos 6",
+        match="Failed to decode field, invalid data: field t pos 6",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1740,7 +1740,7 @@ def test_field_negative_incorrect_encoding():
     s = b"header0200400000000000000002xx"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .unknown encoding: invalid.: field 2 pos 28",
+        match="Failed to decode field, unknown encoding specified: field 2 pos 28",
     ):
         iso8583.decode(s, spec=spec)
 
@@ -1763,7 +1763,7 @@ def test_field_negative_incorrect_ascii_data():
     s = b"header0200400000000000000002\xff\xff"
     with pytest.raises(
         iso8583.DecodeError,
-        match="Failed to decode .'ascii' codec can't decode byte 0xff in position 0: ordinal not in range.128..: field 2 pos 28",
+        match="Failed to decode field, invalid data: field 2 pos 28",
     ):
         iso8583.decode(s, spec=spec)
 

@@ -232,15 +232,29 @@ def _decode_type(
             "t",
         )
 
-    try:
-        if spec["t"]["data_enc"] == "b":
-            doc_dec["t"] = s[idx : idx + f_len].hex().upper()
-        else:
+    if spec["t"]["data_enc"] == "b":
+        doc_dec["t"] = s[idx : idx + f_len].hex().upper()
+    else:
+        try:
             doc_dec["t"] = s[idx : idx + f_len].decode(spec["t"]["data_enc"])
-    except Exception as e:
-        raise DecodeError(
-            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, "t"
-        ) from None
+        except LookupError:
+            raise DecodeError(
+                "Failed to decode field, unknown encoding specified",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "t",
+            ) from None
+        except Exception:
+            raise DecodeError(
+                "Failed to decode field, invalid data",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                "t",
+            ) from None
 
     return idx + f_len
 
@@ -525,23 +539,35 @@ def _decode_field(
             field_key,
         )
 
-    try:
-        if spec[field_key]["data_enc"] == "b":
-            doc_dec[field_key] = doc_enc[field_key]["data"].hex().upper()
-            if len_count == "nibbles" and enc_field_len & 1:
-                doc_dec[field_key] = _remove_pad_field(
-                    s, idx, doc_dec, doc_enc, field_key, spec, enc_field_len
-                )
-        else:
+    if spec[field_key]["data_enc"] == "b":
+        doc_dec[field_key] = doc_enc[field_key]["data"].hex().upper()
+        if len_count == "nibbles" and enc_field_len & 1:
+            doc_dec[field_key] = _remove_pad_field(
+                s, idx, doc_dec, doc_enc, field_key, spec, enc_field_len
+            )
+    else:
+        try:
             doc_dec[field_key] = doc_enc[field_key]["data"].decode(
                 spec[field_key]["data_enc"]
             )
-    except DecodeError:
-        raise
-    except Exception as e:
-        raise DecodeError(
-            f"Failed to decode ({e})", s, doc_dec, doc_enc, idx, field_key
-        ) from None
+        except LookupError:
+            raise DecodeError(
+                "Failed to decode field, unknown encoding specified",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                field_key,
+            ) from None
+        except Exception:
+            raise DecodeError(
+                "Failed to decode field, invalid data",
+                s,
+                doc_dec,
+                doc_enc,
+                idx,
+                field_key,
+            ) from None
 
     return idx + byte_field_len
 
