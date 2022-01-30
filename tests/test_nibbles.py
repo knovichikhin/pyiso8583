@@ -161,7 +161,27 @@ def test_encode_nibbles_odd_no_pad() -> None:
     decoded = {"t": "0200", "2": "1"}
     with pytest.raises(
         iso8583.EncodeError,
-        match="Failed to encode .*: field 2",
+        match="Failed to encode field, odd-length nibble data, specify pad: field 2",
+    ):
+        iso8583.encode(decoded, spec=spec)
+
+
+def test_encode_nibbles_non_hex() -> None:
+    spec = copy.deepcopy(iso8583.specs.default)
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+
+    spec["2"]["data_enc"] = "b"
+    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_type"] = 2
+    spec["2"]["max_len"] = 8
+    spec["2"]["len_count"] = "nibbles"
+    spec["2"]["right_pad"] = "f"
+
+    decoded = {"t": "0200", "2": "x"}
+    with pytest.raises(
+        iso8583.EncodeError,
+        match="Failed to encode field, non-hex data: field 2",
     ):
         iso8583.encode(decoded, spec=spec)
 

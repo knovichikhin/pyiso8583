@@ -175,13 +175,40 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
 
     doc_enc["t"] = {"len": b"", "data": b""}
 
-    try:
-        if spec["t"]["data_enc"] == "b":
+    if spec["t"]["data_enc"] == "b":
+        try:
             doc_enc["t"]["data"] = bytes.fromhex(doc_dec["t"])
-        else:
+        except Exception:
+            if len(doc_dec["t"]) % 2 == 1:
+                raise EncodeError(
+                    "Failed to encode field, odd-length hex data",
+                    doc_dec,
+                    doc_enc,
+                    "t",
+                ) from None
+            raise EncodeError(
+                "Failed to encode field, non-hex data",
+                doc_dec,
+                doc_enc,
+                "t",
+            ) from None
+    else:
+        try:
             doc_enc["t"]["data"] = doc_dec["t"].encode(spec["t"]["data_enc"])
-    except Exception as e:
-        raise EncodeError(f"Failed to encode ({e})", doc_dec, doc_enc, "t") from None
+        except LookupError:
+            raise EncodeError(
+                "Failed to encode field, unknown encoding specified",
+                doc_dec,
+                doc_enc,
+                "t",
+            ) from None
+        except Exception:
+            raise EncodeError(
+                "Failed to encode field, invalid data",
+                doc_dec,
+                doc_enc,
+                "t",
+            ) from None
 
     if len(doc_enc["t"]["data"]) != f_len:
         raise EncodeError(
@@ -271,13 +298,28 @@ def _encode_bitmaps(
     doc_dec["p"] = s[0:8].hex().upper()
     doc_enc["p"] = {"len": b"", "data": b""}
 
-    try:
-        if spec["p"]["data_enc"] == "b":
-            doc_enc["p"]["data"] = bytes(s[0:8])
-        else:
+    if spec["p"]["data_enc"] == "b":
+        doc_enc["p"]["data"] = bytes(s[0:8])
+    else:
+        try:
             doc_enc["p"]["data"] = doc_dec["p"].encode(spec["p"]["data_enc"])
-    except Exception as e:
-        raise EncodeError(f"Failed to encode ({e})", doc_dec, doc_enc, "p") from None
+        except LookupError:
+            raise EncodeError(
+                "Failed to encode field, unknown encoding specified",
+                doc_dec,
+                doc_enc,
+                "p",
+            ) from None
+        # It does not seem to be possible to hit this because standard
+        # encodings are able to encode ASCII A-F characters.
+        # However, keeping this, because you just never know.
+        except Exception as e:  # pragma: no cover
+            raise EncodeError(
+                f"Failed to encode field, {e}",
+                doc_dec,
+                doc_enc,
+                "p",
+            ) from None
 
     # No need to produce secondary bitmap if it's not required
     if 1 not in fields:
@@ -287,13 +329,28 @@ def _encode_bitmaps(
     doc_dec["1"] = s[8:16].hex().upper()
     doc_enc["1"] = {"len": b"", "data": b""}
 
-    try:
-        if spec["1"]["data_enc"] == "b":
-            doc_enc["1"]["data"] = bytes(s[8:16])
-        else:
+    if spec["1"]["data_enc"] == "b":
+        doc_enc["1"]["data"] = bytes(s[8:16])
+    else:
+        try:
             doc_enc["1"]["data"] = doc_dec["1"].encode(spec["1"]["data_enc"])
-    except Exception as e:
-        raise EncodeError(f"Failed to encode ({e})", doc_dec, doc_enc, "1") from None
+        except LookupError:
+            raise EncodeError(
+                "Failed to encode field, unknown encoding specified",
+                doc_dec,
+                doc_enc,
+                "1",
+            ) from None
+        # It does not seem to be possible to hit this because standard
+        # encodings are able to encode ASCII A-F characters.
+        # However, keeping this, because you just never know.
+        except Exception as e:  # pragma: no cover
+            raise EncodeError(
+                f"Failed to encode field, {e}",
+                doc_dec,
+                doc_enc,
+                "1",
+            ) from None
 
     return doc_enc["p"]["data"] + doc_enc["1"]["data"]
 
@@ -332,36 +389,75 @@ def _encode_field(
     # Optional field added in v2.1. Prior specs do not have it.
     len_count = spec[field_key].get("len_count", "bytes")
 
-    try:
-        # Binary data: either hex or BCD
-        if spec[field_key]["data_enc"] == "b":
-            if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
-                doc_enc[field_key]["data"] = bytes.fromhex(
-                    _add_pad_field(doc_dec, field_key, spec)
-                )
-            else:
-                doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
-
-            # Encoded field length can be in bytes or half bytes (nibbles)
-            if len_count == "nibbles":
-                enc_field_len = len(doc_dec[field_key])
-            else:
-                enc_field_len = len(doc_enc[field_key]["data"])
-        # Text data
+    # Binary data: either hex or BCD
+    if spec[field_key]["data_enc"] == "b":
+        if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
+            try:
+                nibble_data = _add_pad_field(doc_dec, field_key, spec)
+                doc_enc[field_key]["data"] = bytes.fromhex(nibble_data)
+            except Exception:
+                if len(nibble_data) % 2 == 1:
+                    raise EncodeError(
+                        "Failed to encode field, odd-length nibble data, specify pad",
+                        doc_dec,
+                        doc_enc,
+                        field_key,
+                    ) from None
+                raise EncodeError(
+                    "Failed to encode field, non-hex data",
+                    doc_dec,
+                    doc_enc,
+                    field_key,
+                ) from None
         else:
+            try:
+                doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
+            except Exception:
+                if len(doc_dec[field_key]) % 2 == 1:
+                    raise EncodeError(
+                        "Failed to encode field, odd-length hex data",
+                        doc_dec,
+                        doc_enc,
+                        field_key,
+                    ) from None
+                raise EncodeError(
+                    "Failed to encode field, non-hex data",
+                    doc_dec,
+                    doc_enc,
+                    field_key,
+                ) from None
+
+        # Encoded field length can be in bytes or half bytes (nibbles)
+        if len_count == "nibbles":
+            enc_field_len = len(doc_dec[field_key])
+        else:
+            enc_field_len = len(doc_enc[field_key]["data"])
+    # Text data
+    else:
+        try:
             doc_enc[field_key]["data"] = doc_dec[field_key].encode(
                 spec[field_key]["data_enc"]
             )
+        except LookupError:
+            raise EncodeError(
+                "Failed to encode field, unknown encoding specified",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+        except Exception:
+            raise EncodeError(
+                "Failed to encode field, invalid data",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
 
-            # Encoded field length can be in bytes or half bytes (nibbles)
-            if len_count == "nibbles":
-                enc_field_len = len(doc_enc[field_key]["data"]) * 2
-            else:
-                enc_field_len = len(doc_enc[field_key]["data"])
-    except Exception as e:
-        raise EncodeError(
-            f"Failed to encode ({e})", doc_dec, doc_enc, field_key
-        ) from None
+        # Encoded field length can be in bytes or half bytes (nibbles)
+        if len_count == "nibbles":
+            enc_field_len = len(doc_enc[field_key]["data"]) * 2
+        else:
+            enc_field_len = len(doc_enc[field_key]["data"])
 
     len_type = spec[field_key]["len_type"]
 
@@ -389,26 +485,39 @@ def _encode_field(
         )
 
     # Encode field length
-    try:
-        if spec[field_key]["len_enc"] == "b":
-            # Odd field length type is not allowed for purpose of string
-            # to BCD translation. Double it, e.g.:
-            # BCD LVAR length \x09 must be string "09"
-            # BCD LLVAR length \x99 must be string "99"
-            # BCD LLLVAR length \x09\x99 must be string "0999"
-            # BCD LLLLVAR length \x99\x99 must be string "9999"
-            doc_enc[field_key]["len"] = bytes.fromhex(
-                "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
-            )
-        else:
+    if spec[field_key]["len_enc"] == "b":
+        # Odd field length type is not allowed for purpose of string
+        # to BCD translation. Double it, e.g.:
+        # BCD LVAR length \x09 must be string "09"
+        # BCD LLVAR length \x99 must be string "99"
+        # BCD LLLVAR length \x09\x99 must be string "0999"
+        # BCD LLLLVAR length \x99\x99 must be string "9999"
+        doc_enc[field_key]["len"] = bytes.fromhex(
+            "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
+        )
+    else:
+        try:
             doc_enc[field_key]["len"] = bytes(
                 "{:0{len_type}d}".format(enc_field_len, len_type=len_type),
                 spec[field_key]["len_enc"],
             )
-    except Exception as e:
-        raise EncodeError(
-            f"Failed to encode length ({e})", doc_dec, doc_enc, field_key
-        ) from None
+        except LookupError:
+            raise EncodeError(
+                "Failed to encode field length, unknown encoding specified",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+        # It does not seem to be possible to hit this because regular
+        # numeric characters seem to be always encodable.
+        # However, keeping this, because you just never know.
+        except Exception as e:  # pragma: no cover
+            raise EncodeError(
+                f"Failed to encode field length, {e}",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
 
     return doc_enc[field_key]["len"] + doc_enc[field_key]["data"]
 
