@@ -485,7 +485,7 @@ def _encode_field(
         )
 
     # Encode field length
-    if spec[field_key]["len_enc"] == "b":
+    if spec[field_key]["len_enc"] in {"b", "bcd"}:
         # Odd field length type is not allowed for purpose of string
         # to BCD translation. Double it, e.g.:
         # BCD LVAR length \x09 must be string "09"

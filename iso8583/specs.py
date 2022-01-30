@@ -16,21 +16,28 @@ Mandatory Field Properties
 --------------------------
 Each field defines these properties:
 
-- **data_enc** - field's data encoding type, where:
+- **data_enc** - field data encoding type. Set to:
 
-  - Use ``b`` for binary or Binary-Coded Decimal (BCD) data. For example,
+  - ``b`` for binary or Binary-Coded Decimal (BCD) data. For example,
     ``ABCD`` hex string is encoded as ``\xAB\xCD`` 2-byte value. Or ``1234``
     numeric string is encoded as ``\x12\x34`` 2-byte BCD value.
-  - Otherwise, provide any valid Python encoding. For example, ``ascii`` or
+  - Or any valid Python encoding. For example, ``ascii`` or
     ``latin-1`` for ASCII data and ``cp500`` or similar for EBCDIC data.
-    For a list of possible encodings, see Python standard encodings:
+    For a list of built-in encodings, see Python standard encodings:
     https://docs.python.org/3/library/codecs.html#standard-encodings
 
-- **len_enc** - field's length encoding type. Follows the same rules as **data_enc**.
-  Some fields, such as ICC data, could have binary data but ASCII length.
-  This parameter does not affect fixed-length fields.
+- **len_enc** - field length encoding type. This is needed for some fields,
+  such as ICC data, that could have binary data but ASCII length.
+  This parameter does not affect fixed-length fields. Set to:
 
-- **len_type** - field's length type: fixed, LVAR, LLVAR, etc.
+  - ``bcd`` for Binary-Coded Decimal (BCD) length. For example,
+    ``1234`` field length is encoded as ``\x12\x34`` 2-byte BCD value.
+  - Or any valid Python encoding. For example, ``ascii`` or
+    ``latin-1`` for ASCII length and ``cp500`` or similar for EBCDIC length.
+    For a list of built-in encodings, see Python standard encodings:
+    https://docs.python.org/3/library/codecs.html#standard-encodings
+
+- **len_type** - field length type: fixed, LVAR, LLVAR, etc.
   Expressed as a number of bytes in field length. For example,
   ASCII LLVAR length takes up 2 bytes (``b'00' - b'99'``).
   BCD LLVAR length can take up only 1 byte (``b'\x00' - b'\x99'``).
@@ -53,10 +60,10 @@ Each field defines these properties:
   |  LLLLVAR     |          ``4`` |                ``2`` |
   +--------------+----------------+----------------------+
 
-- **max_len** - field's maximum length in bytes or nibbles. For fixed fields
+- **max_len** - field maximum length in bytes or nibbles. For fixed fields
   **max_len** defines the length of the field.
 
-- **desc** - field's description that's printed in a pretty format.
+- **desc** - field description that's printed in a pretty format.
   **desc** plays no role in encoding or decoding data. It's safe to omit it
   from the specifications. However, if omitted :func:`iso8583.pp` may or may
   not work as expected.
@@ -65,7 +72,7 @@ Optional Field Properties
 -------------------------
 Each field may define these additional properties as needed:
 
-- **len_count** - specifies if field's length is measured
+- **len_count** - specifies if field length is measured
   in bytes or nibbles (half bytes). This parameter affects **max_len**.
 
   - Use ``bytes`` (default) to measure field length in bytes.
@@ -86,17 +93,19 @@ Each field may define these additional properties as needed:
 
 Sample Field Specifications
 ---------------------------
-Binary-coded decimal primary bitmap::
+Binary primary bitmap.
+Length encoding makes no difference, since the field has no length::
 
     specification["p"] = {
         "data_enc": "b",
-        "len_enc": "b",
+        "len_enc": "ascii",
         "len_type": 0,
         "max_len": 8,
-        "desc": "BCD bitmap, e.g. \x12\x34\x56\x78\x90\xAB\xCD\xEF"
+        "desc": "Binary bitmap, e.g. \x12\x34\x56\x78\x90\xAB\xCD\xEF"
     }
 
-Hex string primary bitmap::
+Hex string primary bitmap.
+Length encoding makes no difference, since the field has no length::
 
     specification["p"] = {
         "data_enc": "ascii",
@@ -106,14 +115,15 @@ Hex string primary bitmap::
         "desc": "Hex string bitmap, e.g 1234567890ABCDEF"
     }
 
-Field 2, a 10-byte BCD fixed length field::
+Field 2, a 10-byte binary or BCD fixed length field.
+Length encoding makes no difference, since the field has no length::
 
     specification["2"] = {
         "data_enc": "b",
-        "len_enc": "b",
+        "len_enc": "ascii",
         "len_type": 0,
         "max_len": 10,
-        "desc": "BCD fixed field"
+        "desc": "Binary or BCD fixed field"
     }
 
 Field 3, an ASCII LLVAR field of maximum 20 bytes::
@@ -136,29 +146,30 @@ Field 4, an EBCDIC LLLVAR field of maximum 150 bytes::
         "desc": "EBCDIC LLLVAR field"
     }
 
-Field 5, a BCD LLVAR field measured in nibbles and left-padded with 0.
+Field 5, a binary or BCD LLVAR field measured in nibbles and left-padded with 0.
 The field is maximum 20 nibbles::
 
     specification["5"] = {
         "data_enc": "b",
-        "len_enc": "b",
+        "len_enc": "bcd",
         "len_type": 1,
         "len_count": "nibbles",
         "left_pad": "0",
         "max_len": 20,
-        "desc": "BCD LLVAR field measured in nibbles, e.g. \x03\x01\x11"
+        "desc": "Binary or BCD LLVAR field measured in nibbles, e.g. \x03\x01\x11"
     }
 
-Field 6, a 3-nibble BCD fixed field right-padded with 0::
+Field 6, a 3-nibble binary or BCD fixed field right-padded with 0.
+Length encoding makes no difference, since the field has no length::
 
     specification["6"] = {
         "data_enc": "b",
-        "len_enc": "b",
+        "len_enc": "bcd",
         "len_type": 0,
         "len_count": "nibbles",
         "right_pad": "0",
         "max_len": 3,
-        "desc": "BCD fixed field measured in nibbles, e.g. \x11\x10"
+        "desc": "Binary or BCD fixed field measured in nibbles, e.g. \x11\x10"
     }
 
 Sample Message Specifications

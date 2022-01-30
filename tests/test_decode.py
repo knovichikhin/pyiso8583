@@ -178,7 +178,7 @@ def test_header_length_negative_incorrect_bcd_data():
     However, the data is not numeric.
     """
     spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "b"
+    spec["h"]["len_enc"] = "bcd"
     spec["h"]["len_type"] = 1
     spec["h"]["max_len"] = 99
     spec["t"]["data_enc"] = "ascii"
@@ -1623,7 +1623,7 @@ def test_field_length_negative_incorrect_bcd_data():
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
     spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_enc"] = "bcd"
     spec["2"]["len_type"] = 1
     spec["2"]["max_len"] = 99
 
@@ -1819,7 +1819,7 @@ def test_field_negative_incorrect_bcd_data():
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
     spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "b"
+    spec["2"]["len_enc"] = "bcd"
     spec["2"]["len_type"] = 1
     spec["2"]["max_len"] = 99
 

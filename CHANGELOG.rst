@@ -2,6 +2,8 @@ Unreleased
 ----------
 - Provide friendlier error messages when failing to decode field, field length, and bitmap.
 - Provide friendlier error messages when failing to encode field, field length, and bitmap.
+- Clarify Binary-coded decimal field length configuration. Added ``bcd`` value to ``len_enc``
+  which is the same as the existing ``b`` value. Both mean that the length is to be encoded as BCD.
 
 2.1.0 - 2020-12-24
 ------------------
