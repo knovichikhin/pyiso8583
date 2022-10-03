@@ -26,3 +26,9 @@ omit = [
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.mypy]
+strict = true
+files = [
+    "iso8583/**/*.py",
+]
