@@ -1,6 +1,5 @@
 import sys as _sys
-from typing import (Any, Callable, Dict, Generator, Mapping, Optional, TextIO,
-                    Union)
+from typing import Any, Callable, Dict, Generator, Mapping, Optional, TextIO, Union
 
 __all__ = ["pp"]
 
