@@ -111,7 +111,11 @@ def decode(
 
     idx = _decode_header(s, doc_dec, doc_enc, idx, spec)
     idx = _decode_type(s, doc_dec, doc_enc, idx, spec)
-    idx = _decode_bitmaps(s, doc_dec, doc_enc, idx, spec, fields)
+    idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "p", spec, fields)
+
+    # No need to produce secondary bitmap if it's not required
+    if 1 in fields:
+        idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "1", spec, fields)
 
     # `field_key` can be used to throw an exception after the loop.
     # So, create it here in case the `fields` set is empty
@@ -120,10 +124,10 @@ def decode(
     field_key = "p"
 
     for field_key in [str(i) for i in sorted(fields)]:
-        # Secondary bitmap is already decoded in _decode_bitmaps
+        # Secondary bitmap is already decoded
         if field_key == "1":
             continue
-        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec)
+        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec[field_key])
 
     if idx != len(s):
         raise DecodeError(
@@ -136,6 +140,8 @@ def decode(
 #
 # Private interface
 #
+
+_FieldSpecDict = Mapping[str, Any]
 
 
 def _decode_header(
@@ -176,7 +182,7 @@ def _decode_header(
     if spec["h"]["max_len"] <= 0:
         return idx
 
-    return _decode_field(s, doc_dec, doc_enc, idx, "h", spec)
+    return _decode_field(s, doc_dec, doc_enc, idx, "h", spec["h"])
 
 
 def _decode_type(
@@ -215,16 +221,16 @@ def _decode_type(
 
     # Message type is a set length in ISO8583
     if spec["t"]["data_enc"] == "b":
-        f_len = 2
+        expected_field_len = 2
     else:
-        f_len = 4
+        expected_field_len = 4
 
     doc_dec["t"] = ""
-    doc_enc["t"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
+    doc_enc["t"] = {"len": b"", "data": bytes(s[idx : idx + expected_field_len])}
 
-    if len(s[idx : idx + f_len]) != f_len:
+    if len(s[idx : idx + expected_field_len]) != expected_field_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
+            f"Field data is {len(s[idx:idx + expected_field_len])} bytes, expecting {expected_field_len}",
             s,
             doc_dec,
             doc_enc,
@@ -233,41 +239,31 @@ def _decode_type(
         )
 
     if spec["t"]["data_enc"] == "b":
-        doc_dec["t"] = s[idx : idx + f_len].hex().upper()
+        doc_dec["t"] = s[idx : idx + expected_field_len].hex().upper()
     else:
-        try:
-            doc_dec["t"] = s[idx : idx + f_len].decode(spec["t"]["data_enc"])
-        except LookupError:
-            raise DecodeError(
-                "Failed to decode field, unknown encoding specified",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "t",
-            ) from None
-        except Exception:
-            raise DecodeError(
-                "Failed to decode field, invalid data",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "t",
-            ) from None
+        _decode_text_data(
+            s,
+            s[idx : idx + expected_field_len],
+            idx,
+            doc_dec,
+            doc_enc,
+            "t",
+            spec["t"],
+        )
 
-    return idx + f_len
+    return idx + expected_field_len
 
 
-def _decode_bitmaps(
+def _decode_bitmap(
     s: Union[bytes, bytearray],
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
     idx: int,
+    field_key: str,
     spec: SpecDict,
     fields: Set[int],
 ) -> int:
-    r"""Decode ISO8583 primary and secondary bitmaps.
+    r"""Decode ISO8583 a bitmap.
 
     Parameters
     ----------
@@ -282,6 +278,8 @@ def _decode_bitmaps(
     spec : dict
         A Python dict defining ISO8583 specification.
         See :mod:`iso8583.specs` module for examples.
+    field_key : str
+        Field ID to be decoded
     fields: set
         Will be populated with enabled field numbers
 
@@ -296,52 +294,43 @@ def _decode_bitmaps(
         An error decoding ISO8583 bytearray.
     """
 
-    # Primary bitmap is a set length in ISO8583
-    if spec["p"]["data_enc"] == "b":
-        f_len = 8
+    # Primary/Secondary bitmap is a set length in ISO8583
+    if spec[field_key]["data_enc"] == "b":
+        expected_field_len = 8
     else:
-        f_len = 16
+        expected_field_len = 16
 
-    doc_dec["p"] = ""
-    doc_enc["p"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
+    offset = 0 if field_key == "p" else 64
 
-    if len(s[idx : idx + f_len]) != f_len:
+    doc_dec[field_key] = ""
+    doc_enc[field_key] = {"len": b"", "data": bytes(s[idx : idx + expected_field_len])}
+
+    if len(s[idx : idx + expected_field_len]) != expected_field_len:
         raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
+            f"Field data is {len(s[idx:idx + expected_field_len])} bytes, expecting {expected_field_len}",
             s,
             doc_dec,
             doc_enc,
             idx,
-            "p",
+            field_key,
         )
 
-    if spec["p"]["data_enc"] == "b":
-        doc_dec["p"] = s[idx : idx + f_len].hex().upper()
-        bm = s[idx : idx + f_len]
+    if spec[field_key]["data_enc"] == "b":
+        doc_dec[field_key] = s[idx : idx + expected_field_len].hex().upper()
+        bitmap = s[idx : idx + expected_field_len]
     else:
-        try:
-            doc_dec["p"] = s[idx : idx + f_len].decode(spec["p"]["data_enc"])
-        except LookupError:
-            raise DecodeError(
-                "Failed to decode field, unknown encoding specified",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "p",
-            ) from None
-        except Exception:
-            raise DecodeError(
-                "Failed to decode field, invalid data",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "p",
-            ) from None
+        _decode_text_data(
+            s,
+            s[idx : idx + expected_field_len],
+            idx,
+            doc_dec,
+            doc_enc,
+            field_key,
+            spec[field_key],
+        )
 
         try:
-            bm = bytes.fromhex(doc_dec["p"])
+            bitmap = bytes.fromhex(doc_dec[field_key])
         except Exception:
             raise DecodeError(
                 "Failed to decode field, non-hex data",
@@ -349,91 +338,19 @@ def _decode_bitmaps(
                 doc_dec,
                 doc_enc,
                 idx,
-                "p",
+                field_key,
             ) from None
 
     fields.update(
         [
-            byte_idx * 8 + bit
+            offset + byte_idx * 8 + bit
             for bit in range(1, 9)
-            for byte_idx, byte in enumerate(bm)
+            for byte_idx, byte in enumerate(bitmap)
             if byte >> (8 - bit) & 1
         ]
     )
 
-    idx += f_len
-
-    # No need to produce secondary bitmap if it's not required
-    if 1 not in fields:
-        return idx
-
-    # Decode secondary bitmap
-    # Secondary bitmap is a set length in ISO8583
-    if spec["1"]["data_enc"] == "b":
-        f_len = 8
-    else:
-        f_len = 16
-
-    doc_dec["1"] = ""
-    doc_enc["1"] = {"len": b"", "data": bytes(s[idx : idx + f_len])}
-
-    if len(s[idx : idx + f_len]) != f_len:
-        raise DecodeError(
-            f"Field data is {len(s[idx:idx + f_len])} bytes, expecting {f_len}",
-            s,
-            doc_dec,
-            doc_enc,
-            idx,
-            "1",
-        )
-
-    if spec["1"]["data_enc"] == "b":
-        doc_dec["1"] = s[idx : idx + f_len].hex().upper()
-        bm = s[idx : idx + f_len]
-    else:
-        try:
-            doc_dec["1"] = s[idx : idx + f_len].decode(spec["1"]["data_enc"])
-        except LookupError:
-            raise DecodeError(
-                "Failed to decode field, unknown encoding specified",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "1",
-            ) from None
-        except Exception:
-            raise DecodeError(
-                "Failed to decode field, invalid data",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "1",
-            ) from None
-
-        try:
-            bm = bytes.fromhex(doc_dec["1"])
-        except Exception:
-            raise DecodeError(
-                "Failed to decode field, non-hex data",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                "1",
-            ) from None
-
-    fields.update(
-        [
-            64 + byte_idx * 8 + bit
-            for bit in range(1, 9)
-            for byte_idx, byte in enumerate(bm)
-            if byte >> (8 - bit) & 1
-        ]
-    )
-
-    return idx + f_len
+    return idx + expected_field_len
 
 
 def _decode_field(
@@ -442,7 +359,7 @@ def _decode_field(
     doc_enc: EncodedDict,
     idx: int,
     field_key: str,
-    spec: SpecDict,
+    field_spec: _FieldSpecDict,
 ) -> int:
     r"""Decode ISO8583 individual fields.
 
@@ -458,8 +375,8 @@ def _decode_field(
         Current index in ISO8583 byte array
     field_key : str
         Field ID to be decoded
-    spec : dict
-        A Python dict defining ISO8583 specification.
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
         See :mod:`iso8583.specs` module for examples.
 
     Returns
@@ -472,10 +389,10 @@ def _decode_field(
     DecodeError
         An error decoding ISO8583 bytearray.
     """
-    len_type = spec[field_key]["len_type"]
+    len_type = field_spec["len_type"]
 
     # Optional field added in v2.1. Prior specs do not have it.
-    len_count = spec[field_key].get("len_count", "bytes")
+    len_count = field_spec.get("len_count", "bytes")
 
     doc_dec[field_key] = ""
     doc_enc[field_key] = {"len": bytes(s[idx : idx + len_type]), "data": b""}
@@ -493,11 +410,11 @@ def _decode_field(
     # Parse field length if present.
     # For fixed-length fields max_len is the length.
     if len_type == 0:
-        enc_field_len: int = spec[field_key]["max_len"]
+        enc_field_len: int = field_spec["max_len"]
     # Variable field length
     else:
         # BCD length
-        if spec[field_key]["len_enc"] in {"b", "bcd"}:
+        if field_spec["len_enc"] in {"b", "bcd"}:
             try:
                 enc_field_len = int(s[idx : idx + len_type].hex(), 10)
             except Exception:
@@ -512,9 +429,7 @@ def _decode_field(
         # Text length
         else:
             try:
-                decoded_length = s[idx : idx + len_type].decode(
-                    spec[field_key]["len_enc"]
-                )
+                decoded_length = s[idx : idx + len_type].decode(field_spec["len_enc"])
             except LookupError:
                 raise DecodeError(
                     "Failed to decode field length, unknown encoding specified",
@@ -546,9 +461,9 @@ def _decode_field(
                     field_key,
                 ) from None
 
-        if enc_field_len > spec[field_key]["max_len"]:
+        if enc_field_len > field_spec["max_len"]:
             raise DecodeError(
-                f"Field data is {enc_field_len} {len_count}, larger than maximum {spec[field_key]['max_len']}",
+                f"Field data is {enc_field_len} {len_count}, larger than maximum {field_spec['max_len']}",
                 s,
                 doc_dec,
                 doc_enc,
@@ -589,35 +504,28 @@ def _decode_field(
             field_key,
         )
 
-    if spec[field_key]["data_enc"] == "b":
+    if field_spec["data_enc"] == "b":
         doc_dec[field_key] = doc_enc[field_key]["data"].hex().upper()
         if len_count == "nibbles" and enc_field_len & 1:
             doc_dec[field_key] = _remove_pad_field(
-                s, idx, doc_dec, doc_enc, field_key, spec, enc_field_len
+                s,
+                idx,
+                doc_dec,
+                doc_enc,
+                field_key,
+                field_spec,
+                enc_field_len,
             )
     else:
-        try:
-            doc_dec[field_key] = doc_enc[field_key]["data"].decode(
-                spec[field_key]["data_enc"]
-            )
-        except LookupError:
-            raise DecodeError(
-                "Failed to decode field, unknown encoding specified",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                field_key,
-            ) from None
-        except Exception:
-            raise DecodeError(
-                "Failed to decode field, invalid data",
-                s,
-                doc_dec,
-                doc_enc,
-                idx,
-                field_key,
-            ) from None
+        _decode_text_data(
+            s,
+            doc_enc[field_key]["data"],
+            idx,
+            doc_dec,
+            doc_enc,
+            field_key,
+            field_spec,
+        )
 
     return idx + byte_field_len
 
@@ -628,7 +536,7 @@ def _remove_pad_field(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
     field_key: str,
-    spec: SpecDict,
+    field_spec: _FieldSpecDict,
     enc_field_len: int,
 ) -> str:
     r"""Remove left or right pad from a BCD or hex field.
@@ -645,8 +553,8 @@ def _remove_pad_field(
         Dict containing encoded ISO8583 data
     field_key : str
         Field ID to remove pad from
-    spec : dict
-        A Python dict defining ISO8583 specification.
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
         See :mod:`iso8583.specs` module for examples.
     enc_field_len : int
         Number of nibbles expected in the field
@@ -661,11 +569,11 @@ def _remove_pad_field(
     DecodeError
         An error decoding ISO8583 bytearray.
     """
-    pad: str = spec[field_key].get("left_pad", "")[:1]
+    pad: str = field_spec.get("left_pad", "")[:1]
     if len(pad) > 0 and doc_dec[field_key][:1] == pad:
         return doc_dec[field_key][1:]
 
-    pad = spec[field_key].get("right_pad", "")[:1]
+    pad = field_spec.get("right_pad", "")[:1]
     if len(pad) > 0 and doc_dec[field_key][-1:] == pad:
         return doc_dec[field_key][:-1]
 
@@ -677,3 +585,66 @@ def _remove_pad_field(
         idx,
         field_key,
     )
+
+
+def _decode_text_data(
+    s: Union[bytes, bytearray],
+    data: Union[bytes, bytearray],
+    idx: int,
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    field_key: str,
+    field_spec: _FieldSpecDict,
+) -> str:
+    r"""Decode non-binary field and handle errors if any
+
+    Parameters
+    ----------
+    s : bytes or bytearray
+        Encoded ISO8583 data
+    data : bytes or bytearray
+        Encoded ISO8583 data to decode
+    idx : int
+        Current index in ISO8583 byte array
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    doc_enc : dict
+        Dict containing encoded ISO8583 data
+    field_key : str
+        Field ID to remove pad from
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
+        See :mod:`iso8583.specs` module for examples.
+    enc_field_len : int
+        Number of nibbles expected in the field
+
+    Returns
+    -------
+    str
+        Field data without pad
+
+    Raises
+    ------
+    DecodeError
+        An error decoding ISO8583 bytearray.
+    """
+    try:
+        doc_dec[field_key] = data.decode(field_spec["data_enc"])
+    except LookupError:
+        raise DecodeError(
+            "Failed to decode field, unknown encoding specified",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            field_key,
+        ) from None
+    except Exception:
+        raise DecodeError(
+            "Failed to decode field, invalid data",
+            s,
+            doc_dec,
+            doc_enc,
+            idx,
+            field_key,
+        ) from None
