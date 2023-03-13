@@ -1,4 +1,5 @@
 from typing import Any, Dict, Mapping, MutableMapping, Set, Tuple, Type
+import binascii
 
 __all__ = ["encode", "EncodeError"]
 
@@ -284,25 +285,7 @@ def _encode_bitmaps(
     if spec["p"]["data_enc"] == "b":
         doc_enc["p"]["data"] = bytes(s[0:8])
     else:
-        try:
-            doc_enc["p"]["data"] = doc_dec["p"].encode(spec["p"]["data_enc"])
-        except LookupError:
-            raise EncodeError(
-                "Failed to encode field, unknown encoding specified",
-                doc_dec,
-                doc_enc,
-                "p",
-            ) from None
-        # It does not seem to be possible to hit this because standard
-        # encodings are able to encode ASCII A-F characters.
-        # However, keeping this, because you just never know.
-        except Exception as e:  # pragma: no cover
-            raise EncodeError(
-                f"Failed to encode field, {e}",
-                doc_dec,
-                doc_enc,
-                "p",
-            ) from None
+        _encode_text_field(doc_dec, doc_enc, "p", spec["p"], "bytes")
 
     # No need to produce secondary bitmap if it's not required
     if 1 not in fields:
@@ -315,25 +298,7 @@ def _encode_bitmaps(
     if spec["1"]["data_enc"] == "b":
         doc_enc["1"]["data"] = bytes(s[8:16])
     else:
-        try:
-            doc_enc["1"]["data"] = doc_dec["1"].encode(spec["1"]["data_enc"])
-        except LookupError:
-            raise EncodeError(
-                "Failed to encode field, unknown encoding specified",
-                doc_dec,
-                doc_enc,
-                "1",
-            ) from None
-        # It does not seem to be possible to hit this because standard
-        # encodings are able to encode ASCII A-F characters.
-        # However, keeping this, because you just never know.
-        except Exception as e:  # pragma: no cover
-            raise EncodeError(
-                f"Failed to encode field, {e}",
-                doc_dec,
-                doc_enc,
-                "1",
-            ) from None
+        _encode_text_field(doc_dec, doc_enc, "1", spec["1"], "bytes")
 
     return doc_enc["p"]["data"] + doc_enc["1"]["data"]
 
@@ -427,7 +392,7 @@ def _encode_field(
         # BCD LLVAR length \x99 must be string "99"
         # BCD LLLVAR length \x09\x99 must be string "0999"
         # BCD LLLLVAR length \x99\x99 must be string "9999"
-        doc_enc[field_key]["len"] = bytes.fromhex(
+        doc_enc[field_key]["len"] = binascii.a2b_hex(
             "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
         )
     else:
@@ -494,7 +459,7 @@ def _encode_bindary_field(
             data_to_encode = _add_pad_field(doc_dec, field_key, field_spec)
         else:
             data_to_encode = doc_dec[field_key]
-        doc_enc[field_key]["data"] = bytes.fromhex(data_to_encode)
+        doc_enc[field_key]["data"] = binascii.a2b_hex(data_to_encode)
     except Exception:
         if len_count == "nibbles" and len(data_to_encode) % 2 == 1:
             raise EncodeError(
