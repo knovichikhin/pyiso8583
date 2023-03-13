@@ -101,8 +101,14 @@ def encode(doc_dec: DecodedDict, spec: SpecDict) -> Tuple[bytearray, EncodedDict
 # Private interface
 #
 
+_FieldDict = Mapping[str, Any]
 
-def _encode_header(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> bytes:
+
+def _encode_header(
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    spec: SpecDict,
+) -> bytes:
     r"""Encode ISO8583 header data if present from `d["h"]`.
 
     Parameters
@@ -139,7 +145,11 @@ def _encode_header(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -
     return _encode_field(doc_dec, doc_enc, "h", spec)
 
 
-def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> bytes:
+def _encode_type(
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    spec: SpecDict,
+) -> bytes:
     r"""Encode ISO8583 message type from `d["t"]`.
 
     Parameters
@@ -169,50 +179,20 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
 
     # Message type is a set length in ISO8583
     if spec["t"]["data_enc"] == "b":
-        f_len = 2
+        expected_field_len = 2
     else:
-        f_len = 4
+        expected_field_len = 4
 
     doc_enc["t"] = {"len": b"", "data": b""}
 
     if spec["t"]["data_enc"] == "b":
-        try:
-            doc_enc["t"]["data"] = bytes.fromhex(doc_dec["t"])
-        except Exception:
-            if len(doc_dec["t"]) % 2 == 1:
-                raise EncodeError(
-                    "Failed to encode field, odd-length hex data",
-                    doc_dec,
-                    doc_enc,
-                    "t",
-                ) from None
-            raise EncodeError(
-                "Failed to encode field, non-hex data",
-                doc_dec,
-                doc_enc,
-                "t",
-            ) from None
+        enc_field_len = _encode_bindary_field(doc_dec, doc_enc, "t", spec["t"], "bytes")
     else:
-        try:
-            doc_enc["t"]["data"] = doc_dec["t"].encode(spec["t"]["data_enc"])
-        except LookupError:
-            raise EncodeError(
-                "Failed to encode field, unknown encoding specified",
-                doc_dec,
-                doc_enc,
-                "t",
-            ) from None
-        except Exception:
-            raise EncodeError(
-                "Failed to encode field, invalid data",
-                doc_dec,
-                doc_enc,
-                "t",
-            ) from None
+        enc_field_len = _encode_text_field(doc_dec, doc_enc, "t", spec["t"], "bytes")
 
-    if len(doc_enc["t"]["data"]) != f_len:
+    if enc_field_len != expected_field_len:
         raise EncodeError(
-            f"Field data is {len(doc_enc['t']['data'])} bytes, expecting {f_len}",
+            f"Field data is {enc_field_len} bytes, expecting {expected_field_len}",
             doc_dec,
             doc_enc,
             "t",
@@ -222,7 +202,10 @@ def _encode_type(doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict) -> 
 
 
 def _encode_bitmaps(
-    doc_dec: DecodedDict, doc_enc: EncodedDict, spec: SpecDict, fields: Set[int]
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    spec: SpecDict,
+    fields: Set[int],
 ) -> bytes:
     r"""Encode ISO8583 primary and secondary bitmap from dictionary keys.
 
@@ -356,7 +339,10 @@ def _encode_bitmaps(
 
 
 def _encode_field(
-    doc_dec: DecodedDict, doc_enc: EncodedDict, field_key: str, spec: SpecDict
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    field_key: str,
+    spec: SpecDict,
 ) -> bytes:
     r"""Encode ISO8583 individual field from `doc_dec[field_key]`.
 
@@ -391,73 +377,22 @@ def _encode_field(
 
     # Binary data: either hex or BCD
     if spec[field_key]["data_enc"] == "b":
-        if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
-            try:
-                nibble_data = _add_pad_field(doc_dec, field_key, spec)
-                doc_enc[field_key]["data"] = bytes.fromhex(nibble_data)
-            except Exception:
-                if len(nibble_data) % 2 == 1:
-                    raise EncodeError(
-                        "Failed to encode field, odd-length nibble data, specify pad",
-                        doc_dec,
-                        doc_enc,
-                        field_key,
-                    ) from None
-                raise EncodeError(
-                    "Failed to encode field, non-hex data",
-                    doc_dec,
-                    doc_enc,
-                    field_key,
-                ) from None
-        else:
-            try:
-                doc_enc[field_key]["data"] = bytes.fromhex(doc_dec[field_key])
-            except Exception:
-                if len(doc_dec[field_key]) % 2 == 1:
-                    raise EncodeError(
-                        "Failed to encode field, odd-length hex data",
-                        doc_dec,
-                        doc_enc,
-                        field_key,
-                    ) from None
-                raise EncodeError(
-                    "Failed to encode field, non-hex data",
-                    doc_dec,
-                    doc_enc,
-                    field_key,
-                ) from None
-
-        # Encoded field length can be in bytes or half bytes (nibbles)
-        if len_count == "nibbles":
-            enc_field_len = len(doc_dec[field_key])
-        else:
-            enc_field_len = len(doc_enc[field_key]["data"])
+        enc_field_len = _encode_bindary_field(
+            doc_dec,
+            doc_enc,
+            field_key,
+            spec[field_key],
+            len_count,
+        )
     # Text data
     else:
-        try:
-            doc_enc[field_key]["data"] = doc_dec[field_key].encode(
-                spec[field_key]["data_enc"]
-            )
-        except LookupError:
-            raise EncodeError(
-                "Failed to encode field, unknown encoding specified",
-                doc_dec,
-                doc_enc,
-                field_key,
-            ) from None
-        except Exception:
-            raise EncodeError(
-                "Failed to encode field, invalid data",
-                doc_dec,
-                doc_enc,
-                field_key,
-            ) from None
-
-        # Encoded field length can be in bytes or half bytes (nibbles)
-        if len_count == "nibbles":
-            enc_field_len = len(doc_enc[field_key]["data"]) * 2
-        else:
-            enc_field_len = len(doc_enc[field_key]["data"])
+        enc_field_len = _encode_text_field(
+            doc_dec,
+            doc_enc,
+            field_key,
+            spec[field_key],
+            len_count,
+        )
 
     len_type = spec[field_key]["len_type"]
 
@@ -522,7 +457,75 @@ def _encode_field(
     return doc_enc[field_key]["len"] + doc_enc[field_key]["data"]
 
 
-def _add_pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
+def _encode_bindary_field(
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    field_key: str,
+    field_spec: _FieldDict,
+    len_count: str,
+) -> int:
+    r"""Encode ISO8583 individual field from `doc_dec[field_key]` to its binary representation.
+
+    Parameters
+    ----------
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    doc_enc : dict
+        Dict containing encoded ISO8583 data
+    field_key : str
+        Field ID to be encoded
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
+        See :mod:`iso8583.specs` module for examples.
+
+    Returns
+    -------
+    int
+        Length of the encoded ISO8583 field data. The length is either nibbles or bytes.
+
+    Raises
+    ------
+    EncodeError
+        An error encoding ISO8583 bytearray.
+    """
+    try:
+        # Odd length nibbles need to be padded because it's not possible to send half a byte
+        if len_count == "nibbles" and len(doc_dec[field_key]) & 1:
+            data_to_encode = _add_pad_field(doc_dec, field_key, field_spec)
+        else:
+            data_to_encode = doc_dec[field_key]
+        doc_enc[field_key]["data"] = bytes.fromhex(data_to_encode)
+    except Exception:
+        if len_count == "nibbles" and len(data_to_encode) % 2 == 1:
+            raise EncodeError(
+                "Failed to encode field, odd-length nibble data, specify pad",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+        if len(data_to_encode) % 2 == 1:
+            raise EncodeError(
+                "Failed to encode field, odd-length hex data",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+        raise EncodeError(
+            "Failed to encode field, non-hex data",
+            doc_dec,
+            doc_enc,
+            field_key,
+        ) from None
+
+    # Encoded field length can be in bytes or half bytes (nibbles).
+    # Encoded nibble length directly corresponds to the count of received nibbles.
+    if len_count == "nibbles":
+        return len(doc_dec[field_key])
+    else:
+        return len(doc_enc[field_key]["data"])
+
+
+def _add_pad_field(doc_dec: DecodedDict, field_key: str, field_spec: _FieldDict) -> str:
     r"""Pad a BCD or hex field from the left or right.
 
     Parameters
@@ -531,8 +534,8 @@ def _add_pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
         Dict containing decoded ISO8583 data
     field_key : str
         Field ID to pad
-    spec : dict
-        A Python dict defining ISO8583 specification.
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
         See :mod:`iso8583.specs` module for examples.
 
     Returns
@@ -540,12 +543,68 @@ def _add_pad_field(doc_dec: DecodedDict, field_key: str, spec: SpecDict) -> str:
     str
         Padded field data
     """
-    pad: str = spec[field_key].get("left_pad", "")[:1]
+    pad: str = field_spec.get("left_pad", "")[:1]
     if len(pad) > 0:
         return pad + doc_dec[field_key]
 
-    pad = spec[field_key].get("right_pad", "")[:1]
+    pad = field_spec.get("right_pad", "")[:1]
     if len(pad) > 0:
         return doc_dec[field_key] + pad
 
     return doc_dec[field_key]
+
+
+def _encode_text_field(
+    doc_dec: DecodedDict,
+    doc_enc: EncodedDict,
+    field_key: str,
+    field_spec: _FieldDict,
+    len_count: str,
+) -> int:
+    r"""Encode ISO8583 individual field from `doc_dec[field_key]` to its text representation.
+
+    Parameters
+    ----------
+    doc_dec : dict
+        Dict containing decoded ISO8583 data
+    doc_enc : dict
+        Dict containing encoded ISO8583 data
+    field_key : str
+        Field ID to be encoded
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
+        See :mod:`iso8583.specs` module for examples.
+
+    Returns
+    -------
+    int
+        Length of the encoded ISO8583 field data. The length is either nibbles or bytes.
+
+    Raises
+    ------
+    EncodeError
+        An error encoding ISO8583 bytearray.
+    """
+    try:
+        doc_enc[field_key]["data"] = doc_dec[field_key].encode(field_spec["data_enc"])
+    except LookupError:
+        raise EncodeError(
+            "Failed to encode field, unknown encoding specified",
+            doc_dec,
+            doc_enc,
+            field_key,
+        ) from None
+    except Exception:
+        raise EncodeError(
+            "Failed to encode field, invalid data",
+            doc_dec,
+            doc_enc,
+            field_key,
+        ) from None
+
+    # Encoded field length can be in bytes or half bytes (nibbles)
+    # Encoded nibble length directly corresponds to the count of received nibbles.
+    if len_count == "nibbles":
+        return len(doc_enc[field_key]["data"]) * 2
+    else:
+        return len(doc_enc[field_key]["data"])
