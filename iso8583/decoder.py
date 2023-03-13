@@ -595,7 +595,7 @@ def _decode_text_data(
     doc_enc: EncodedDict,
     field_key: str,
     field_spec: _FieldSpecDict,
-) -> str:
+) -> None:
     r"""Decode non-binary field and handle errors if any
 
     Parameters
@@ -617,11 +617,6 @@ def _decode_text_data(
         See :mod:`iso8583.specs` module for examples.
     enc_field_len : int
         Number of nibbles expected in the field
-
-    Returns
-    -------
-    str
-        Field data without pad
 
     Raises
     ------
