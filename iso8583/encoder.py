@@ -93,7 +93,7 @@ def encode(doc_dec: DecodedDict, spec: SpecDict) -> Tuple[bytearray, EncodedDict
         # Secondary bitmap is already encoded in _encode_bitmaps
         if field_key == "1":
             continue
-        s += _encode_field(doc_dec, doc_enc, field_key, spec)
+        s += _encode_field(doc_dec, doc_enc, field_key, spec[field_key])
 
     return s, doc_enc
 
@@ -102,7 +102,7 @@ def encode(doc_dec: DecodedDict, spec: SpecDict) -> Tuple[bytearray, EncodedDict
 # Private interface
 #
 
-_FieldDict = Mapping[str, Any]
+_FieldSpecDict = Mapping[str, Any]
 
 
 def _encode_header(
@@ -143,7 +143,7 @@ def _encode_header(
             "Field data is required according to specifications", doc_dec, doc_enc, "h"
         )
 
-    return _encode_field(doc_dec, doc_enc, "h", spec)
+    return _encode_field(doc_dec, doc_enc, "h", spec["h"])
 
 
 def _encode_type(
@@ -307,7 +307,7 @@ def _encode_field(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
     field_key: str,
-    spec: SpecDict,
+    field_spec: _FieldSpecDict,
 ) -> bytes:
     r"""Encode ISO8583 individual field from `doc_dec[field_key]`.
 
@@ -319,8 +319,8 @@ def _encode_field(
         Dict containing encoded ISO8583 data
     field_key : str
         Field ID to be encoded
-    spec : dict
-        A Python dict defining ISO8583 specification.
+    field_spec : dict
+        A Python dict defining ISO8583 specification for this field.
         See :mod:`iso8583.specs` module for examples.
 
     Returns
@@ -338,15 +338,15 @@ def _encode_field(
     doc_enc[field_key] = {"len": b"", "data": b""}
 
     # Optional field added in v2.1. Prior specs do not have it.
-    len_count = spec[field_key].get("len_count", "bytes")
+    len_count = field_spec.get("len_count", "bytes")
 
     # Binary data: either hex or BCD
-    if spec[field_key]["data_enc"] == "b":
+    if field_spec["data_enc"] == "b":
         enc_field_len = _encode_bindary_field(
             doc_dec,
             doc_enc,
             field_key,
-            spec[field_key],
+            field_spec,
             len_count,
         )
     # Text data
@@ -355,17 +355,17 @@ def _encode_field(
             doc_dec,
             doc_enc,
             field_key,
-            spec[field_key],
+            field_spec,
             len_count,
         )
 
-    len_type = spec[field_key]["len_type"]
+    len_type = field_spec["len_type"]
 
     # Handle fixed length field. No need to calculate length.
     if len_type == 0:
-        if enc_field_len != spec[field_key]["max_len"]:
+        if enc_field_len != field_spec["max_len"]:
             raise EncodeError(
-                f"Field data is {enc_field_len} {len_count}, expecting {spec[field_key]['max_len']}",
+                f"Field data is {enc_field_len} {len_count}, expecting {field_spec['max_len']}",
                 doc_dec,
                 doc_enc,
                 field_key,
@@ -376,16 +376,16 @@ def _encode_field(
 
     # Continue with variable length field.
 
-    if enc_field_len > spec[field_key]["max_len"]:
+    if enc_field_len > field_spec["max_len"]:
         raise EncodeError(
-            f"Field data is {enc_field_len} {len_count}, larger than maximum {spec[field_key]['max_len']}",
+            f"Field data is {enc_field_len} {len_count}, larger than maximum {field_spec['max_len']}",
             doc_dec,
             doc_enc,
             field_key,
         )
 
     # Encode field length
-    if spec[field_key]["len_enc"] in {"b", "bcd"}:
+    if field_spec["len_enc"] in {"b", "bcd"}:
         # Odd field length type is not allowed for purpose of string
         # to BCD translation. Double it, e.g.:
         # BCD LVAR length \x09 must be string "09"
@@ -399,7 +399,7 @@ def _encode_field(
         try:
             doc_enc[field_key]["len"] = bytes(
                 "{:0{len_type}d}".format(enc_field_len, len_type=len_type),
-                spec[field_key]["len_enc"],
+                field_spec["len_enc"],
             )
         except LookupError:
             raise EncodeError(
@@ -426,7 +426,7 @@ def _encode_bindary_field(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
     field_key: str,
-    field_spec: _FieldDict,
+    field_spec: _FieldSpecDict,
     len_count: str,
 ) -> int:
     r"""Encode ISO8583 individual field from `doc_dec[field_key]` to its binary representation.
@@ -490,7 +490,11 @@ def _encode_bindary_field(
         return len(doc_enc[field_key]["data"])
 
 
-def _add_pad_field(doc_dec: DecodedDict, field_key: str, field_spec: _FieldDict) -> str:
+def _add_pad_field(
+    doc_dec: DecodedDict,
+    field_key: str,
+    field_spec: _FieldSpecDict,
+) -> str:
     r"""Pad a BCD or hex field from the left or right.
 
     Parameters
@@ -523,7 +527,7 @@ def _encode_text_field(
     doc_dec: DecodedDict,
     doc_enc: EncodedDict,
     field_key: str,
-    field_spec: _FieldDict,
+    field_spec: _FieldSpecDict,
     len_count: str,
 ) -> int:
     r"""Encode ISO8583 individual field from `doc_dec[field_key]` to its text representation.
