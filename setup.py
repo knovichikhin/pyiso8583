@@ -6,7 +6,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -35,6 +34,6 @@ if __name__ == "__main__":
         package_data={"iso8583": ["py.typed"]},
         zip_safe=False,
         classifiers=classifiers,
-        python_requires=">=3.6",
+        python_requires=">=3.7",
         keywords="iso8583 8583 banking protocol library",
     )
