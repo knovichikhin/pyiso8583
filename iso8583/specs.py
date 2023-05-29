@@ -18,9 +18,10 @@ Each field defines these properties:
 
 - **data_enc** - field data encoding type. Set to:
 
-  - ``b`` for binary or Binary-Coded Decimal (BCD) data. For example,
-    ``ABCD`` hex string is encoded as ``\xAB\xCD`` 2-byte value. Or ``1234``
-    numeric string is encoded as ``\x12\x34`` 2-byte BCD value.
+  - ``b`` for binary data. For example, ``ABCD`` hex string is encoded as
+    ``\xAB\xCD`` 2-byte value. This encoding type is also used for Binary-Coded
+    Decimal (BCD) because BCD encoding is a subset of hex encoding. For example,
+    ``1234`` numeric string is encoded as ``\x12\x34`` 2-byte BCD value.
   - Or any valid Python encoding. For example, ``ascii`` or
     ``latin-1`` for ASCII data and ``cp500`` or similar for EBCDIC data.
     For a list of built-in encodings, see Python standard encodings:
@@ -30,8 +31,10 @@ Each field defines these properties:
   such as ICC data, that could have binary data but ASCII length.
   This parameter does not affect fixed-length fields. Set to:
 
-  - ``bcd`` for Binary-Coded Decimal (BCD) length. For example,
-    ``1234`` field length is encoded as ``\x12\x34`` 2-byte BCD value.
+  - ``b`` for binary length. For example, 16 byte long field will have length
+    encoded as ``\x10``.
+  - ``bcd`` for Binary-Coded Decimal (BCD) length. For example, 16 byte long
+    field will have length encoded as ``\x16``.
   - Or any valid Python encoding. For example, ``ascii`` or
     ``latin-1`` for ASCII length and ``cp500`` or similar for EBCDIC length.
     For a list of built-in encodings, see Python standard encodings:
@@ -41,24 +44,25 @@ Each field defines these properties:
   Expressed as a number of bytes in field length. For example,
   ASCII LLVAR length takes up 2 bytes (``b'00' - b'99'``).
   BCD LLVAR length can take up only 1 byte (``b'\x00' - b'\x99'``).
+  The same applies to binary where LLVAR can take up only 1 byte (``b'\x00' - b'\xFF'``).
   Therefore, **len_type** depends on the type of **len_enc** being used.
-  BCD **len_enc** can fit higher length ranges in fewer bytes.
+  BCD and binary **len_enc** can fit higher length ranges in fewer bytes.
 
-  +--------------+---------------------------------------+
-  |              |              **len_enc**              |
-  |              +----------------+----------------------+
-  | **len_type** | ASCII / EBCDIC | Binary-Coded Decimal |
-  +--------------+----------------+----------------------+
-  |  Fixed       |          ``0`` |                ``0`` |
-  +--------------+----------------+----------------------+
-  |  LVAR        |          ``1`` |                ``1`` |
-  +--------------+----------------+----------------------+
-  |  LLVAR       |          ``2`` |                ``1`` |
-  +--------------+----------------+----------------------+
-  |  LLLVAR      |          ``3`` |                ``2`` |
-  +--------------+----------------+----------------------+
-  |  LLLLVAR     |          ``4`` |                ``2`` |
-  +--------------+----------------+----------------------+
+  +--------------+------------------------------------------------+
+  |              |              **len_enc**                       |
+  |              +----------------+-------------------------------+
+  | **len_type** | ASCII / EBCDIC | Binary-Coded Decimal / Binary |
+  +--------------+----------------+-------------------------------+
+  |  Fixed       |          ``0`` |                         ``0`` |
+  +--------------+----------------+-------------------------------+
+  |  LVAR        |          ``1`` |                         ``1`` |
+  +--------------+----------------+-------------------------------+
+  |  LLVAR       |          ``2`` |                         ``1`` |
+  +--------------+----------------+-------------------------------+
+  |  LLLVAR      |          ``3`` |                         ``2`` |
+  +--------------+----------------+-------------------------------+
+  |  LLLLVAR     |          ``4`` |                         ``2`` |
+  +--------------+----------------+-------------------------------+
 
 - **max_len** - field maximum length in bytes or nibbles. For fixed fields
   **max_len** defines the length of the field.

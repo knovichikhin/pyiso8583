@@ -384,10 +384,14 @@ def _encode_field(
             field_key,
         )
 
-    # Encode field length
-    if field_spec["len_enc"] in {"b", "bcd"}:
-        # Odd field length type is not allowed for purpose of string
-        # to BCD translation. Double it, e.g.:
+    # Encode binary field length
+    if field_spec["len_enc"] == "b":
+        doc_enc[field_key]["len"] = (enc_field_len).to_bytes(
+            len_type, "big", signed=False
+        )
+    # Encode BCD field length
+    elif field_spec["len_enc"] == "bcd":
+        # Odd field length type is not allowed when translating string BCD. Pad it, e.g.:
         # BCD LVAR length \x09 must be string "09"
         # BCD LLVAR length \x99 must be string "99"
         # BCD LLLVAR length \x09\x99 must be string "0999"

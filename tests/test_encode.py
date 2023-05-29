@@ -1,5 +1,6 @@
 import copy
 import pickle
+import typing
 
 import iso8583
 import iso8583.specs
@@ -145,7 +146,7 @@ def test_header_no_key():
         iso8583.encode(doc_dec, spec=spec)
 
 
-def test_header_ascii_absent():
+def test_header_absent():
     """
     ASCII header is not required by spec and not provided
     """
@@ -171,7 +172,7 @@ def test_header_ascii_absent():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_header_ascii_present():
+def test_header_present():
     """
     ASCII header is required by spec and provided
     """
@@ -203,127 +204,9 @@ def test_header_ascii_present():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_header_ebcdic_absent():
-    """
-    EBCDIC header is not required by spec and not provided
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["max_len"] = 0
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"0200\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_header_ebcdic_present():
-    """
-    EBCDIC header is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\x88\x85\x81\x84\x85\x990200\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"\x88\x85\x81\x84\x85\x99"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_header_bdc_absent():
-    """
-    BDC header is not required by spec and not provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["max_len"] = 0
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"0200\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_header_bcd_present():
-    """
-    BCD header is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "A1A2A3A4A5A6", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\xA1\xA2\xA3\xA4\xA5\xA60200\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"\xA1\xA2\xA3\xA4\xA5\xA6"
-    assert doc_dec["h"] == "A1A2A3A4A5A6"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
 def test_header_not_required_provided():
     """
-    String header is not required by spec but provided.
+    Hheader is not required by spec but provided.
     No error. Header is not included in the message.
     """
     spec["h"]["data_enc"] = "ascii"
@@ -349,490 +232,6 @@ def test_header_not_required_provided():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_header_negative_missing():
-    """
-    String header is required by spec but not provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "", "t": "0200"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 6: field h"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_header_negative_partial():
-    """
-    String header is required by spec but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "head", "t": "0200"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 4 bytes, expecting 6: field h"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_header_negative_incorrect_encoding():
-    """
-    String header is required by spec and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "invalid"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, unknown encoding specified: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_header_negative_incorrect_ascii_data():
-    """
-    ASCII header is required by spec and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {
-        "h": b"\xff\xff\xff\xff\xff\xff".decode("latin-1"),
-        "t": "0200",
-    }
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, invalid data: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_header_negative_incorrect_bcd_data():
-    """
-    BCD header is required by spec and provided.
-    However, the data is not hex
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, non-hex data: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_header_ascii_over_max():
-    """
-    ASCII variable header is required and over max provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header12", "t": "0210"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Field data is 8 bytes, larger than maximum 6: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_header_ascii_present():
-    """
-    ASCII variable header is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"06header0210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"06"
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_variable_header_ascii_present_zero_legnth():
-    """
-    ASCII zero-length variable header
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"000210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"00"
-    assert doc_enc["h"]["data"] == b""
-    assert doc_dec["h"] == ""
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_variable_header_ebcdic_over_max():
-    """
-    EBCDIC variable header is required and over max provided
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["len_enc"] = "cp500"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header1", "t": "0210"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Field data is 7 bytes, larger than maximum 6: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_header_ebcdic_present():
-    """
-    EBCDIC variable header is required and provided
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["len_enc"] = "cp500"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\xf0\xf6\x88\x85\x81\x84\x85\x990210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"\xf0\xf6"
-    assert doc_enc["h"]["data"] == b"\x88\x85\x81\x84\x85\x99"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_variable_header_ebcdic_present_zero_legnth():
-    """
-    EBCDIC zero-length variable header
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["len_enc"] = "cp500"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\xf0\xf00210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"\xf0\xf0"
-    assert doc_enc["h"]["data"] == b""
-    assert doc_dec["h"] == ""
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_variable_header_bdc_over_max():
-    """
-    BDC variable header is required and over max is provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "bcd"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 2
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "abcdef", "t": "0210"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Field data is 3 bytes, larger than maximum 2: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_header_bdc_odd():
-    """
-    BDC variable header is required and odd length is provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "bcd"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "abcde", "t": "0210"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, odd-length hex data: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_header_bdc_ascii_length():
-    """
-    BDC variable header
-    The length is in ASCII.
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 3
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "abcd", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"002\xab\xcd0210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"002"
-    assert doc_enc["h"]["data"] == b"\xab\xcd"
-    assert doc_dec["h"] == "abcd"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_variable_header_bdc_ebcdic_length():
-    """
-    BDC variable header is required and provided
-    The length is in EBCDIC.
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = "cp500"
-    spec["h"]["len_type"] = 3
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "abcd", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\xf0\xf0\xf2\xab\xcd0210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"\xf0\xf0\xf2"
-    assert doc_enc["h"]["data"] == b"\xab\xcd"
-    assert doc_dec["h"] == "abcd"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-# fmt: off
-@pytest.mark.parametrize(
-    ["len_enc"],
-    [
-        ("b",),
-        ("bcd",),
-    ],
-)
-# fmt: on
-def test_variable_header_bcd_present(len_enc: str):
-    """
-    BCD variable header is required and provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = len_enc
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "abcd", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\x00\x02\xab\xcd0210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"\x00\x02"
-    assert doc_enc["h"]["data"] == b"\xab\xcd"
-    assert doc_dec["h"] == "abcd"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-# fmt: off
-@pytest.mark.parametrize(
-    ["len_enc"],
-    [
-        ("b",),
-        ("bcd",),
-    ],
-)
-# fmt: on
-def test_variable_header_bcd_present_zero_length(len_enc: str):
-    """
-    BCD zero-length variable header is required and provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_enc"] = len_enc
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "", "t": "0210"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"\x00\x000210\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b"\x00\x00"
-    assert doc_enc["h"]["data"] == b""
-    assert doc_dec["h"] == ""
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_variable_header_incorrect_encoding():
-    """
-    variable header is required and provided.
-    However, the spec encoding is not correct for length
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "invalid"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "abcd", "t": "0210"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field length, unknown encoding specified: field h",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
 def test_type_no_key():
     """
     Message type is required and key is not provided
@@ -851,388 +250,101 @@ def test_type_no_key():
         iso8583.encode(doc_dec, spec=spec)
 
 
-def test_type_ascii_absent():
-    """
-    ASCII message type is required and not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
+# fmt: off
+@pytest.mark.parametrize(
+    ["data_enc", "data", "expected_error"],
+    [
+        ("unknown_encoding", "0", "Failed to encode field, unknown encoding specified: field t"),
+        ("b", "xx", "Failed to encode field, non-hex data: field t"),
+        ("ascii", "\xff", "Failed to encode field, invalid data: field t"),
+        ("b", "2", "Failed to encode field, odd-length hex data: field t"),
+        # No data
+        ("b", "", "Field data is 0 bytes, expecting 2: field t"),
+        ("ascii", "", "Field data is 0 bytes, expecting 4: field t"),
+        ("cp500", "", "Field data is 0 bytes, expecting 4: field t"),
+        # Less data than expected
+        ("b", "00", "Field data is 1 bytes, expecting 2: field t"),
+        ("ascii", "000", "Field data is 3 bytes, expecting 4: field t"),
+        ("cp500", "000", "Field data is 3 bytes, expecting 4: field t"),
+        # More data than expected
+        ("b", "000000", "Field data is 3 bytes, expecting 2: field t"),
+        ("ascii", "00000", "Field data is 5 bytes, expecting 4: field t"),
+        ("cp500", "00000", "Field data is 5 bytes, expecting 4: field t"),
+    ]
+)
+# fmt: on
+def test_type_encoding_negative(
+    data_enc: str,
+    data: str,
+    expected_error: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["t"]["data_enc"] = data_enc
+    spec["t"]["len_enc"] = "ascii"
 
-    doc_dec = {"h": "header", "t": ""}
+    doc_dec = {"t": data}
 
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 4: field t"
-    ):
+    with pytest.raises(iso8583.EncodeError) as e:
         iso8583.encode(doc_dec, spec=spec)
+    assert e.value.args[0] == expected_error
 
 
-def test_type_ascii_partial():
-    """
-    ASCII message type is required and partial is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
+# fmt: off
+@pytest.mark.parametrize(
+    ["data_enc", "data", "len_type", "max_len", "expected_error"],
+    [
+        ("unknown_encoding", "a", 0, 1, "Failed to encode field, unknown encoding specified: field 2"),
+        ("b", "xx", 0, 1, "Failed to encode field, non-hex data: field 2"),
+        ("ascii", "\xff", 0, 1, "Failed to encode field, invalid data: field 2"),
 
-    doc_dec = {"h": "header", "t": "02"}
+        # Fixed
+        ("b", "a", 0, 1, "Failed to encode field, odd-length hex data: field 2"),
+        ("b", "0", 0, 1, "Failed to encode field, odd-length hex data: field 2"),
+        # No data
+        ("b", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        ("b", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        ("ascii", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        ("cp500", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        # Less data than expected
+        ("b", "aaaa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        ("b", "0000", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        ("ascii", "aa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        ("cp500", "aa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        # More data than expected
+        ("b", "aaaa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
+        ("b", "0000", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
+        ("ascii", "aa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
+        ("cp500", "aa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
 
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 2 bytes, expecting 4: field t"
-    ):
+        # Variable
+        ("b", "a", 1, 10, "Failed to encode field, odd-length hex data: field 2"),
+        ("b", "0", 1, 10, "Failed to encode field, odd-length hex data: field 2"),
+        # More data than expected
+        ("b", "aaaa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+        ("b", "0000", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+        ("ascii", "aa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+        ("cp500", "aa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+    ]
+)
+# fmt: on
+def test_field_encoding_negative(
+    data_enc: str,
+    data: str,
+    len_type: int,
+    max_len: int,
+    expected_error: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
+    spec["2"]["data_enc"] = data_enc
+    spec["2"]["len_enc"] = "ascii"
+
+    doc_dec = {"t": "0210", "2": data}
+
+    with pytest.raises(iso8583.EncodeError) as e:
         iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_ascii_over_max():
-    """
-    ASCII message type is required and over max is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "02101"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 5 bytes, expecting 4: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_ascii_incorrect_data():
-    """
-    ASCII message type is required and provided.
-    However, the data is not ASCII.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {
-        "h": "header",
-        "t": b"\xff\xff\xff\xff".decode("latin-1"),
-    }
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, invalid data: field t",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_ascii_present():
-    """
-    ASCII message type is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0200\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_ebcdic_absent():
-    """
-    EBCDIC message type is required and not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "cp500"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 4: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_ebcdic_partial():
-    """
-    EBCDIC message type is required and partial provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "cp500"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "02"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 2 bytes, expecting 4: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_ebcdic_over_max():
-    """
-    EBCDIC message type is required and over max provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "cp500"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "02101"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 5 bytes, expecting 4: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_ebcdic_present():
-    """
-    EBCDIC message type is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "cp500"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header\xf0\xf2\xf0\xf0\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"\xf0\xf2\xf0\xf0"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_bdc_absent():
-    """
-    BDC message type is required and not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 2: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_bdc_partial():
-    """
-    BDC message type is required and partial is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "02"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 1 bytes, expecting 2: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_bdc_over_max():
-    """
-    BDC message type is required and over max is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "021000"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 3 bytes, expecting 2: field t"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_bdc_odd():
-    """
-    BDC message type is required and odd length is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "021"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, odd-length hex data: field t",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_bdc_non_hex():
-    """
-    BDC message type is required and provided
-    However, the data is not hex
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "021x"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, non-hex data: field t",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_type_bcd_present():
-    """
-    BCD message type is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"\x02\x00"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x00\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_incorrect_encoding():
-    """
-    String message type is required and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "invalid"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, unknown encoding specified: field t",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_bitmap_range():
-    """
-    ISO8583 bitmaps must be between 1 and 128.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0200"}
-
-    doc_dec["0"] = ""
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Dictionary contains fields outside of 1-128 range .0.: field p",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-    del doc_dec["0"]
-    doc_dec["129"] = ""
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Dictionary contains fields outside of 1-128 range .129.: field p",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-    for f in range(0, 130):
-        doc_dec[str(f)] = ""
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Dictionary contains fields outside of 1-128 range .0, 129.: field p",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-    for f in range(0, 131):
-        doc_dec[str(f)] = ""
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Dictionary contains fields outside of 1-128 range .0, 129, 130.: field p",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
+    assert e.value.args[0] == expected_error
 
 
 def test_bitmap_remove_secondary():
@@ -1280,1267 +392,399 @@ def test_bitmap_remove_secondary():
     assert doc_dec.keys() == set(["h", "t", "p", "2"])
 
 
-def test_bitmap_add_secondary():
-    """
-    If one of 65-128 fields are in bitmap then add field 1.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["66"]["data_enc"] = "ascii"
-    spec["66"]["len_enc"] = "ascii"
-    spec["66"]["len_type"] = 2
-    spec["66"]["max_len"] = 19
+# fmt: off
+@pytest.mark.parametrize(
+    [
+        "primary_data_enc",
+        "secondary_data_enc",
+        "enabled_fields",
+        "expected_primary_enc_data",
+        "expected_primary_data",
+        "expected_secondary_enc_data",
+        "expected_secondary_data",
+    ],
+    [
+        # Primary only
+        (
+            "ascii", "ascii", ["5", "7"],
+            b"0A00000000000000", "0A00000000000000",
+            None, None
+        ),
+        (
+            "cp500", "cp500", ["5", "7"],
+            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "0A00000000000000",
+            None, None
+        ),
+        (
+            "b", "b", ["5", "7"],
+            b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000",
+            None, None
+        ),
+        # Secondary bitmap is added when secondary fields are present
+        (
+            "ascii", "ascii", ["5", "7", "69", "71"],
+            b"8A00000000000000", "8A00000000000000",
+            b"0A00000000000000", "0A00000000000000"
+        ),
+        (
+            "cp500", "cp500", ["5", "7", "69", "71"],
+            b"\xf8\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "8A00000000000000",
+            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "0A00000000000000"
+        ),
+        (
+            "b", "b", ["5", "7", "69", "71"],
+            b"\x8A\x00\x00\x00\x00\x00\x00\x00", "8A00000000000000",
+            b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000"
+        ),
+        # Secondary bitmap only
+        (
+            "ascii", "ascii", ["69", "71"],
+            b"8000000000000000", "8000000000000000",
+            b"0A00000000000000", "0A00000000000000"
+        ),
+        (
+            "cp500", "cp500", ["69", "71"],
+            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "8000000000000000",
+            b"\xf0\xc1\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "0A00000000000000"
+        ),
+        (
+            "b", "b", ["69", "71"],
+            b"\x80\x00\x00\x00\x00\x00\x00\x00", "8000000000000000",
+            b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000"
+        ),
+    ]
+)
+# fmt: on
+def test_bitmap_encoding(
+    primary_data_enc: str,
+    secondary_data_enc: str,
+    enabled_fields: typing.Set[str],
+    expected_primary_enc_data: bytes,
+    expected_primary_data: str,
+    expected_secondary_enc_data: typing.Optional[bytes],
+    expected_secondary_data: typing.Optional[str],
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["p"]["data_enc"] = primary_data_enc
+    spec["1"]["data_enc"] = secondary_data_enc
 
-    doc_dec = {
-        "h": "header",
-        "t": "0200",
-        "66": "1234567890",
-    }
+    doc_dec = {"t": "0200"}
+    expected_message_payload: typing.List[str] = []
 
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+    for enabled_field in enabled_fields:
+        spec[enabled_field]["len_type"] = 3
+        spec[enabled_field]["max_len"] = 999
+        spec[enabled_field]["data_enc"] = "ascii"
+        doc_dec[enabled_field] = enabled_field.zfill(3)
+        expected_message_payload.append(b"003")
+        expected_message_payload.append(bytes(enabled_field.zfill(3), "ascii"))
 
-    assert (
-        s
-        == b"header0200\x80\x00\x00\x00\x00\x00\x00\x00\x40\x00\x00\x00\x00\x00\x00\x00101234567890"
-    )
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x80\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "8000000000000000"
-
-    assert doc_enc["1"]["len"] == b""
-    assert doc_enc["1"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["1"] == "4000000000000000"
-
-    assert doc_enc["66"]["len"] == b"10"
-    assert doc_enc["66"]["data"] == b"1234567890"
-    assert doc_dec["66"] == "1234567890"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "1", "66"])
-    assert doc_dec.keys() == set(["h", "t", "p", "1", "66"])
-
-
-def test_primary_bitmap_incorrect_encoding():
-    """
-    Incorrect encoding specified for primary bitmap
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "invalid"
-    spec["1"]["len_type"] = 0
-    spec["1"]["max_len"] = 0
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, unknown encoding specified: field p",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_secondary_bitmap_incorrect_encoding():
-    """
-    Incorrect encoding specified for secondary bitmap
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["len_type"] = 0
-    spec["1"]["max_len"] = 16
-    spec["1"]["data_enc"] = "invalid"
-
-    doc_dec = {"h": "header", "t": "0210", "65": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="ailed to encode field, unknown encoding specified: field 1",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_bitmaps_ascii():
-    """
-    Field is required and not key provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-    spec["105"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "105": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header021080000000000000000000000000800000000"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"8000000000000000"
-    assert doc_dec["p"] == "8000000000000000"
-
-    assert doc_enc["1"]["len"] == b""
-    assert doc_enc["1"]["data"] == b"0000000000800000"
-    assert doc_dec["1"] == "0000000000800000"
-
-    assert doc_enc["105"]["len"] == b"000"
-    assert doc_enc["105"]["data"] == b""
-    assert doc_dec["105"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "1", "105"])
-    assert doc_dec.keys() == set(["h", "t", "p", "1", "105"])
-
-
-def test_bitmaps_ebcidic():
-    """
-    Field is required and not key provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "cp500"
-    spec["1"]["data_enc"] = "cp500"
-    spec["105"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "105": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert (
-        s
-        == b"header0210\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
-        + b"\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
-        + b"\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf8\xf0\xf0\xf0\xf0\xf0000"
-    )
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert (
-        doc_enc["p"]["data"]
-        == b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0"
-    )
-    assert doc_dec["p"] == "8000000000000000"
-
-    assert doc_enc["1"]["len"] == b""
-    assert (
-        doc_enc["1"]["data"]
-        == b"\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf8\xf0\xf0\xf0\xf0\xf0"
-    )
-    assert doc_dec["1"] == "0000000000800000"
-
-    assert doc_enc["105"]["len"] == b"000"
-    assert doc_enc["105"]["data"] == b""
-    assert doc_dec["105"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "1", "105"])
-    assert doc_dec.keys() == set(["h", "t", "p", "1", "105"])
-
-
-def test_bitmaps_bcd():
-    """
-    Field is required and not key provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["1"]["data_enc"] = "b"
-    spec["105"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "105": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert (
-        s
-        == b"header0210\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00000"
-    )
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x80\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "8000000000000000"
-
-    assert doc_enc["1"]["len"] == b""
-    assert doc_enc["1"]["data"] == b"\x00\x00\x00\x00\x00\x80\x00\x00"
-    assert doc_dec["1"] == "0000000000800000"
-
-    assert doc_enc["105"]["len"] == b"000"
-    assert doc_enc["105"]["data"] == b""
-    assert doc_dec["105"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "1", "105"])
-    assert doc_dec.keys() == set(["h", "t", "p", "1", "105"])
-
-
-def test_primary_bitmap_ascii_upper_case():
-    """
-    This test makes sure that encoded primary bitmap is in upper case.
-    """
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 0
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    spec["5"]["len_type"] = 0
-    spec["5"]["max_len"] = 1
-    spec["5"]["data_enc"] = "ascii"
-    spec["7"]["len_type"] = 0
-    spec["7"]["max_len"] = 1
-    spec["7"]["data_enc"] = "ascii"
-
-    doc_dec = {"t": "0200", "5": "A", "7": "B"}
     s, doc_enc = iso8583.encode(doc_dec, spec)
-    assert s == b"02000A00000000000000AB"
-    assert doc_dec["p"] == "0A00000000000000"
+
+    if expected_secondary_enc_data is None:
+        assert bytes(s) == b"0200" + expected_primary_enc_data + b"".join(
+            expected_message_payload
+        )
+    else:
+        assert bytes(
+            s
+        ) == b"0200" + expected_primary_enc_data + expected_secondary_enc_data + b"".join(
+            expected_message_payload
+        )
+
+    assert doc_dec["p"] == expected_primary_data
+    if expected_secondary_data is not None:
+        assert doc_dec["1"] == expected_secondary_data
+
     assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"0A00000000000000"
-    assert doc_enc["5"]["data"] == b"A"
-    assert doc_enc["7"]["data"] == b"B"
-
-
-def test_secondary_bitmap_ascii_upper_case():
-    """
-    This test makes sure that encoded secondary bitmap is in upper case.
-    """
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 0
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-
-    spec["69"]["len_type"] = 0
-    spec["69"]["max_len"] = 1
-    spec["69"]["data_enc"] = "ascii"
-    spec["71"]["len_type"] = 0
-    spec["71"]["max_len"] = 1
-    spec["71"]["data_enc"] = "ascii"
-
-    doc_dec = {"t": "0200", "69": "A", "71": "B"}
-    s, doc_enc = iso8583.encode(doc_dec, spec)
-    assert s == b"020080000000000000000A00000000000000AB"
-    assert doc_dec["p"] == "8000000000000000"
-    assert doc_dec["1"] == "0A00000000000000"
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"8000000000000000"
-    assert doc_enc["1"]["data"] == b"0A00000000000000"
-    assert doc_enc["69"]["data"] == b"A"
-    assert doc_enc["71"]["data"] == b"B"
-
-
-def test_fixed_field_ascii_absent():
-    """
-    ASCII fixed field is required and not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ascii_partial():
-    """
-    ASCII fixed field is required and partially provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 1 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ascii_over_max():
-    """
-    ASCII fixed field is required and over max provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "123"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 3 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ascii_incorrect_data():
-    """
-    ASCII fixed field is required and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "ascii"
-
-    doc_dec = {
-        "h": "header",
-        "t": "0210",
-        "2": b"\xff\xff".decode("latin-1"),
-    }
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, invalid data: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ascii_present():
-    """
-    ASCII fixed field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "22"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x0022"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b""
-    assert doc_enc["2"]["data"] == b"22"
-    assert doc_dec["2"] == "22"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_fixed_field_ascii_present_zero_legnth():
-    """
-    ASCII zero-length fixed field is required and provided
-    This is pointless but should work.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 0
-    spec["2"]["data_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b""
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_fixed_field_ebcdic_absent():
-    """
-    EBCDIC fixed field is required and not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ebcdic_partial():
-    """
-    EBCDIC fixed field is required and partially provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 1 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ebcdic_over_max():
-    """
-    EBCDIC fixed field is required and over max provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "123"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 3 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_ebcdic_present():
-    """
-    EBCDIC fixed field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "22"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\xf2\xf2"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b""
-    assert doc_enc["2"]["data"] == b"\xf2\xf2"
-    assert doc_dec["2"] == "22"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_fixed_field_ebcdic_present_zero_legnth():
-    """
-    EBCDIC zero-length fixed field is required and provided
-    This is pointless but should work.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 0
-    spec["2"]["data_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b""
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_fixed_field_bdc_absent():
-    """
-    BDC fixed field is required and not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 0 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_bdc_partial():
-    """
-    BDC fixed field is required and partial is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "12"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 1 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_bdc_over_max():
-    """
-    BDC fixed field is required and over max is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "123456"}
-
-    with pytest.raises(
-        iso8583.EncodeError, match="Field data is 3 bytes, expecting 2: field 2"
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_bdc_odd():
-    """
-    BDC fixed field is required and odd length is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "12345"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, odd-length hex data: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_bdc_non_hex():
-    """
-    BDC fixed field is required and provided
-    However, the data is not hex
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "11xx"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, non-hex data: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_fixed_field_bcd_present():
-    """
-    BCD fixed field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\x11\x22"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b""
-    assert doc_enc["2"]["data"] == b"\x11\x22"
-    assert doc_dec["2"] == "1122"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_fixed_field_bcd_present_zero_length():
-    """
-    BCD zero-length fixed field is required and provided
-    This is pointless but should work.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 0
-    spec["2"]["data_enc"] = "b"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b""
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_fixed_field_incorrect_encoding():
-    """
-    Fixed field is required and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 2
-    spec["2"]["data_enc"] = "invalid"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, unknown encoding specified: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_field_ascii_over_max():
-    """
-    ASCII variable field is required and over max provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "12345678901"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Field data is 11 bytes, larger than maximum 10: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_field_ascii_present():
-    """
-    ASCII variable field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00041122"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"04"
-    assert doc_enc["2"]["data"] == b"1122"
-    assert doc_dec["2"] == "1122"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_variable_field_ascii_present_zero_legnth():
-    """
-    ASCII zero-length variable field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x0000"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"00"
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_variable_field_ebcdic_over_max():
-    """
-    EBCDIC variable field is required and over max provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "cp500"
-    spec["2"]["len_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "12345678901"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Field data is 11 bytes, larger than maximum 10: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_field_ebcdic_present():
-    """
-    EBCDIC variable field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "cp500"
-    spec["2"]["len_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\xf0\xf4\xf1\xf1\xf2\xf2"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"\xf0\xf4"
-    assert doc_enc["2"]["data"] == b"\xf1\xf1\xf2\xf2"
-    assert doc_dec["2"] == "1122"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_variable_field_ebcdic_present_zero_legnth():
-    """
-    EBCDIC zero-length variable field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "cp500"
-    spec["2"]["len_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\xf0\xf0"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"\xf0\xf0"
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_variable_field_bdc_over_max():
-    """
-    BDC variable field is required and over max is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 5
-    spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "bcd"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "123456789012"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Field data is 6 bytes, larger than maximum 5: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_field_bdc_odd():
-    """
-    BDC variable field is required and odd length is provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "bcd"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "12345"}
-
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field, odd-length hex data: field 2",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-
-def test_variable_field_bdc_ascii_length():
-    """
-    BDC variable field is required and provided
-    The length is in ASCII.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 3
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "ascii"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00002\x11\x22"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"002"
-    assert doc_enc["2"]["data"] == b"\x11\x22"
-    assert doc_dec["2"] == "1122"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
-
-
-def test_variable_field_bdc_ebcdic_length():
-    """
-    BDC variable field is required and provided
-    The length is in EBCDIC.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 3
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = "cp500"
-
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\xf0\xf0\xf2\x11\x22"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"\xf0\xf0\xf2"
-    assert doc_enc["2"]["data"] == b"\x11\x22"
-    assert doc_dec["2"] == "1122"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
+    assert doc_enc["p"]["data"] == expected_primary_enc_data
+    if expected_secondary_enc_data is not None:
+        assert doc_enc["1"]["data"] == expected_secondary_enc_data
+    # Expected field count: enabled_fields + primary bitmap + type + secondary bitmap if expected
+    assert (
+        len(doc_enc) == len(enabled_fields) + 2 + 0
+        if expected_secondary_enc_data is None
+        else 1
+    )
+
+    for enabled_field in enabled_fields:
+        assert doc_dec[enabled_field] == enabled_field.zfill(3)
+        assert doc_enc[enabled_field]["data"] == bytes(enabled_field.zfill(3), "ascii")
+        assert doc_enc[enabled_field]["len"] == b"003"
 
 
 # fmt: off
 @pytest.mark.parametrize(
-    ["len_enc"],
+    [ "primary_data_enc", "secondary_data_enc", "enabled_fields", "expected_error"],
     [
-        ("b",),
-        ("bcd",),
-    ],
+        ("unknown_encoding", "ascii", ["5", "65"], "Failed to encode field, unknown encoding specified: field p"),
+        ("ascii", "unknown_encoding", ["5", "65"], "Failed to encode field, unknown encoding specified: field 1"),
+        ("ascii", "ascii", ["0"], "Dictionary contains fields outside of 1-128 range [0]: field p"),
+        ("ascii", "ascii", ["129"], "Dictionary contains fields outside of 1-128 range [129]: field p"),
+        ("ascii", "ascii", [str(f) for f in range(0, 130)], "Dictionary contains fields outside of 1-128 range [0, 129]: field p"),
+        ("ascii", "ascii", [str(f) for f in range(0, 131)], "Dictionary contains fields outside of 1-128 range [0, 129, 130]: field p"),
+    ]
 )
 # fmt: on
-def test_variable_field_bcd_present(len_enc: str) -> None:
-    """
-    BCD variable field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = len_enc
+def test_bitmap_encoding_negative(
+    primary_data_enc: str,
+    secondary_data_enc: str,
+    enabled_fields: typing.Set[str],
+    expected_error: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["p"]["data_enc"] = primary_data_enc
+    spec["1"]["data_enc"] = secondary_data_enc
 
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
+    doc_dec = {"t": "0210"}
 
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+    for enabled_field in enabled_fields:
+        if enabled_field in spec:
+            spec[enabled_field]["len_type"] = 3
+            spec[enabled_field]["max_len"] = 999
+            spec[enabled_field]["data_enc"] = "ascii"
+        doc_dec[enabled_field] = enabled_field.zfill(3)
 
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\x00\x02\x11\x22"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"\x00\x02"
-    assert doc_enc["2"]["data"] == b"\x11\x22"
-    assert doc_dec["2"] == "1122"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
+    with pytest.raises(iso8583.EncodeError) as e:
+        iso8583.encode(doc_dec, spec=spec)
+    assert e.value.args[0] == expected_error
 
 
 # fmt: off
 @pytest.mark.parametrize(
-    ["len_enc"],
+    ["data_enc", "data", "len_type", "max_len", "expected_encoded_length", "expected_encoded_data"],
     [
-        ("b",),
-        ("bcd",),
+        # Fixed fields
+        ("b",     "", 0, 0, b"", b""),
+        ("ascii", "", 0, 0, b"", b""),
+        ("cp500", "", 0, 0, b"", b""),
+
+        ("ascii", "0", 0, 1, b"", b"0"),
+        ("cp500", "0", 0, 1, b"", b"\xf0"),
+
+        ("b",     "01", 0, 1, b"", b"\x01"),
+        ("ascii", "01", 0, 2, b"", b"01"),
+        ("cp500", "01", 0, 2, b"", b"\xf0\xf1"),
+
+        # Variable fields
+        ("b",     "", 3, 999, b"000", b""),
+        ("ascii", "", 3, 999, b"000", b""),
+        ("cp500", "", 3, 999, b"000", b""),
+
+        ("ascii", "0", 3, 999, b"001", b"0"),
+        ("cp500", "0", 3, 999, b"001", b"\xf0"),
+
+        ("b",     "01", 3, 999, b"001", b"\x01"),
+        ("ascii", "01", 3, 999, b"002", b"01"),
+        ("cp500", "01", 3, 999, b"002", b"\xf0\xf1"),
     ],
 )
 # fmt: on
-def test_variable_field_bcd_present_zero_length(len_enc: str):
-    """
-    BCD zero-length variable field is required and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "b"
-    spec["2"]["len_enc"] = len_enc
+def test_field_encoding(
+    data_enc: str,
+    data: str,
+    len_type: int,
+    max_len: int,
+    expected_encoded_length: bytes,
+    expected_encoded_data: bytes,
+):
+    """Test various results of field encoding with an ascii length (easier to check correct length)"""
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
+    spec["2"]["data_enc"] = data_enc
+    spec["2"]["len_enc"] = "ascii"
 
-    doc_dec = {"h": "header", "t": "0210", "2": ""}
+    doc_dec = {"t": "0210", "2": data}
 
     s, doc_enc = iso8583.encode(doc_dec, spec=spec)
 
-    assert s == b"header0210\x40\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
+    assert (
+        bytes(s)
+        == b"02104000000000000000" + expected_encoded_length + expected_encoded_data
+    )
     assert doc_enc["t"]["len"] == b""
     assert doc_enc["t"]["data"] == b"0210"
     assert doc_dec["t"] == "0210"
 
     assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_enc["p"]["data"] == b"4000000000000000"
     assert doc_dec["p"] == "4000000000000000"
 
-    assert doc_enc["2"]["len"] == b"\x00\x00"
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
+    assert doc_enc["2"]["len"] == expected_encoded_length
+    assert doc_enc["2"]["data"] == expected_encoded_data
+    assert doc_dec["2"] == data
 
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
+    assert doc_enc.keys() == set(["t", "p", "2"])
+    assert doc_dec.keys() == set(["t", "p", "2"])
 
 
-def test_variable_field_incorrect_encoding():
-    """
-    Variable field is required and provided.
-    However, the spec encoding is not correct for length
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 10
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "invalid"
+# fmt: off
+@pytest.mark.parametrize(
+    ["data_enc", "data", "len_type", "max_len", "expected_error"],
+    [
+        ("unknown_encoding", "a", 0, 1, "Failed to encode field, unknown encoding specified: field 2"),
+        ("b", "xx", 0, 1, "Failed to encode field, non-hex data: field 2"),
+        ("ascii", "\xff", 0, 1, "Failed to encode field, invalid data: field 2"),
 
-    doc_dec = {"h": "header", "t": "0210", "2": "1122"}
+        # Fixed
+        ("b", "a", 0, 1, "Failed to encode field, odd-length hex data: field 2"),
+        ("b", "0", 0, 1, "Failed to encode field, odd-length hex data: field 2"),
+        # No data
+        ("b", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        ("b", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        ("ascii", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        ("cp500", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
+        # Less data than expected
+        ("b", "aaaa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        ("b", "0000", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        ("ascii", "aa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        ("cp500", "aa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
+        # More data than expected
+        ("b", "aaaa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
+        ("b", "0000", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
+        ("ascii", "aa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
+        ("cp500", "aa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
 
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Failed to encode field length, unknown encoding specified: field 2",
-    ):
+        # Variable
+        ("b", "a", 1, 10, "Failed to encode field, odd-length hex data: field 2"),
+        ("b", "0", 1, 10, "Failed to encode field, odd-length hex data: field 2"),
+        # More data than expected
+        ("b", "aaaa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+        ("b", "0000", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+        ("ascii", "aa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+        ("cp500", "aa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
+    ]
+)
+# fmt: on
+def test_field_encoding_negative(
+    data_enc: str,
+    data: str,
+    len_type: int,
+    max_len: int,
+    expected_error: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
+    spec["2"]["data_enc"] = data_enc
+    spec["2"]["len_enc"] = "ascii"
+
+    doc_dec = {"t": "0210", "2": data}
+
+    with pytest.raises(iso8583.EncodeError) as e:
         iso8583.encode(doc_dec, spec=spec)
+    assert e.value.args[0] == expected_error
+
+
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc", "len_type", "data_len", "expected_encoded_length"],
+    [
+        # Fixed field, no data - no length
+        # This is pointless but should be encoded correctly.
+        ("b",     0, 0, b""),
+        ("bcd",   0, 0, b""),
+        ("ascii", 0, 0, b""),
+        ("cp500", 0, 0, b""),
+
+        # Fixed field, some data - no length
+        ("b",     0, 1, b""),
+        ("bcd",   0, 1, b""),
+        ("ascii", 0, 1, b""),
+        ("cp500", 0, 1, b""),
+
+        # Variable field, no data - zero length
+        ("b",     1, 0, b"\x00"),
+        ("bcd",   1, 0, b"\x00"),
+        ("ascii", 1, 0, b"0"),
+        ("cp500", 1, 0, b"\xf0"),
+
+        ("b",     2, 0, b"\x00\x00"),
+        ("bcd",   2, 0, b"\x00\x00"),
+        ("ascii", 2, 0, b"00"),
+        ("cp500", 2, 0, b"\xf0\xf0"),
+
+        ("b",     1, 1, b"\x01"),
+        ("bcd",   1, 1, b"\x01"),
+        ("ascii", 1, 1, b"1"),
+        ("cp500", 1, 1, b"\xf1"),
+
+        ("b",     2, 1, b"\x00\x01"),
+        ("bcd",   2, 1, b"\x00\x01"),
+        ("ascii", 2, 1, b"01"),
+        ("cp500", 2, 1, b"\xf0\xf1"),
+
+        ("b",     2, 99, b"\x00\x63"),
+        ("bcd",   2, 99, b"\x00\x99"),
+        ("ascii", 2, 99, b"99"),
+        ("cp500", 2, 99, b"\xf9\xf9"),
+
+        ("b",     1, 16, b"\x10"),
+        ("bcd",   1, 16, b"\x16"),
+        ("b",     2, 256, b"\x01\x00"),
+        ("bcd",   2, 256, b"\x02\x56"),
+    ],
+)
+# fmt: on
+def test_field_length_encoding(
+    len_enc: str,
+    len_type: str,
+    data_len: int,
+    expected_encoded_length: bytes,
+):
+    """Test various results of length encoding with a simple ascii field"""
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = data_len
+    spec["2"]["data_enc"] = "ascii"
+    spec["2"]["len_enc"] = len_enc
+
+    doc_dec = {"t": "0210", "2": "a" * data_len}
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert bytes(s) == b"02104000000000000000" + expected_encoded_length + (
+        b"a" * data_len
+    )
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0210"
+    assert doc_dec["t"] == "0210"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"4000000000000000"
+    assert doc_dec["p"] == "4000000000000000"
+
+    assert doc_enc["2"]["len"] == expected_encoded_length
+    assert doc_enc["2"]["data"] == b"a" * data_len
+    assert doc_dec["2"] == "a" * data_len
+
+    assert doc_enc.keys() == set(["t", "p", "2"])
+    assert doc_dec.keys() == set(["t", "p", "2"])
+
+
+# fmt: off
+@pytest.mark.parametrize(
+    ["len_enc", "len_type", "data_len", "expected_error"],
+    [
+        ("unknown_encoding", 1, 1, "Failed to encode field length, unknown encoding specified: field 2"),
+    ],
+)
+# fmt: on
+def test_field_length_encoding_negative(
+    len_enc: str,
+    len_type: str,
+    data_len: int,
+    expected_error: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = data_len
+    spec["2"]["data_enc"] = "ascii"
+    spec["2"]["len_enc"] = len_enc
+
+    doc_dec = {"t": "0210", "2": "a" * data_len}
+
+    with pytest.raises(iso8583.EncodeError) as e:
+        iso8583.encode(doc_dec, spec=spec)
+    assert e.value.args[0] == expected_error

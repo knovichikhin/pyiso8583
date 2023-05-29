@@ -760,7 +760,7 @@ def util_set2field_data(bm, spec, data_enc, len_enc, len_type):
         if f == "1":
             continue
 
-        # BCD data is always half of ASCII/EBCDIC data
+        # Binary data is always half of ASCII/EBCDIC data
         if data_enc == "b":
             spec[f]["max_len"] = 2
         else:
@@ -773,6 +773,13 @@ def util_set2field_data(bm, spec, data_enc, len_enc, len_type):
         # Append length according to type and encoding
         if len_type > 0:
             if len_enc == "b":
+                # odd length is not allowed, double it up for string translation, e.g.:
+                # length "2" must be "02" to translate to \x02
+                # length "02" must be "0004" to translate to \x00\x02
+                s += bytearray.fromhex(
+                    "{:0{len_type}d}".format(spec[f]["max_len"], len_type=len_type * 2)
+                )
+            elif len_enc == "bcd":
                 # odd length is not allowed, double it up for string translation, e.g.:
                 # length "2" must be "02" to translate to \x02
                 # length "02" must be "0004" to translate to \x00\x02
@@ -1418,14 +1425,15 @@ def test_fields_mix():
     spec["1"]["data_enc"] = "b"
 
     field_lenght = [0, 1, 2, 3, 4]
-    encoding = ["b", "ascii", "cp500"]
+    data_encoding = ["b", "ascii", "cp500"]
+    length_encoding = ["bcd", "ascii", "cp500"]
 
     bm = set()
     for i in range(2, 65):
         bm.add(i)
         for l in field_lenght:
-            for data_e in encoding:
-                for len_e in encoding:
+            for data_e in data_encoding:
+                for len_e in length_encoding:
                     s = bytearray(b"0210")
                     s += util_set2bitmap(bm)
                     s += util_set2field_data(bm, spec, data_e, len_e, l)
@@ -1444,8 +1452,8 @@ def test_fields_mix():
     for i in range(65, 129):
         bm.add(i)
         for l in field_lenght:
-            for data_e in encoding:
-                for len_e in encoding:
+            for data_e in data_encoding:
+                for len_e in length_encoding:
                     s = bytearray(b"0210")
                     s += util_set2bitmap(bm)
                     s += util_set2field_data(bm, spec, data_e, len_e, l)
