@@ -6,13 +6,12 @@ import iso8583
 import iso8583.specs
 import pytest
 
-spec = copy.deepcopy(iso8583.specs.default)
-
 
 def test_EncodeError_exception():
     """
     Validate EncodeError class
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
@@ -39,6 +38,7 @@ def test_EncodeError_exception_pickle():
     """
     Validate EncodeError class with pickle
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
@@ -66,6 +66,7 @@ def test_non_string_field_keys():
     """
     Input dictionary contains non
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
@@ -120,6 +121,7 @@ def test_input_type():
     """
     Encode accepts only dict.
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     s = b""
     with pytest.raises(TypeError, match="Decoded ISO8583 data must be dict, not bytes"):
         iso8583.encode(s, spec=spec)
@@ -129,6 +131,7 @@ def test_header_no_key():
     """
     Message header is required and key is not provided
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
@@ -150,6 +153,7 @@ def test_header_absent():
     """
     Header is not required by spec and not provided
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 0
     spec["t"]["data_enc"] = "ascii"
@@ -176,6 +180,7 @@ def test_header_present():
     """
     Header is required by spec and provided
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
@@ -209,6 +214,7 @@ def test_header_not_required_provided():
     Header is not required by spec but provided.
     No error. Header is not included in the message.
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 0
     spec["t"]["data_enc"] = "ascii"
@@ -236,6 +242,7 @@ def test_type_no_key():
     """
     Message type is required and key is not provided
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6

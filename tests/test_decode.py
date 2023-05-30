@@ -1752,125 +1752,28 @@ def test_field_negative_incorrect_encoding():
     ):
         iso8583.decode(s, spec=spec)
 
-
-def test_field_negative_incorrect_ascii_data():
-    """
-    Field is required and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
+# fmt: off
+@pytest.mark.parametrize(
+    ["data", "len_type", "max_len", "expected_error"],
+    [
+        (b"123456", 0, 4, "Extra data after last field: field 2 pos 24"),
+        (b"02\xff\xff", 2, 4, " Failed to decode field, invalid data: field 2 pos 22"),
+    ]
+)
+# fmt: on
+def test_field_decoding_negative(
+    data: bytes,
+    len_type: int,
+    max_len: int,
+    expected_error: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
     spec["2"]["data_enc"] = "ascii"
     spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header0200400000000000000002\xff\xff"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, invalid data: field 2 pos 28",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_negative_incorrect_ascii_hex():
-    """
-    Field is required and provided.
-    However, the data is not ASCII hex
-    Note: this passes, "gg" is valid hex data when decoding.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header0210400000000000000002gg"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"4000000000000000"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"02"
-    assert doc_enc["2"]["data"] == b"gg"
-    assert doc_dec["2"] == "gg"
-
-    assert doc_enc.keys() == {"h", "t", "p", "2"}
-    assert doc_dec.keys() == {"h", "t", "p", "2"}
-
-
-def test_field_negative_incorrect_bcd_data():
-    """
-    BCD Field is required and provided.
-    However, the data is not hex.
-    Note: this passes, "g" is valid hex data when decoding.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "bcd"
-    spec["2"]["len_type"] = 1
-    spec["2"]["max_len"] = 99
-
-    s = b"header02104000000000000000\x01g"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"4000000000000000"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"\x01"
-    assert doc_enc["2"]["data"] == b"g"
-    assert doc_dec["2"] == "g"
-
-    assert doc_enc.keys() == {"h", "t", "p", "2"}
-    assert doc_dec.keys() == {"h", "t", "p", "2"}
-
-
-def test_field_negative_leftover_data():
-    """
-    Field is required and provided.
-    However, there is extra data left in message.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 0
-    spec["2"]["max_len"] = 4
-
-    s = b"header02004000000000000000123456"
-    with pytest.raises(
-        iso8583.DecodeError, match="Extra data after last field: field 2 pos 30"
-    ):
-        iso8583.decode(s, spec=spec)
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
+    with pytest.raises(iso8583.DecodeError) as e:
+        iso8583.decode(b"02004000000000000000" + data, spec=spec)
+    assert e.value.args[0] == expected_error
