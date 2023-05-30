@@ -148,7 +148,7 @@ def test_header_no_key():
 
 def test_header_absent():
     """
-    ASCII header is not required by spec and not provided
+    Header is not required by spec and not provided
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 0
@@ -174,7 +174,7 @@ def test_header_absent():
 
 def test_header_present():
     """
-    ASCII header is required by spec and provided
+    Header is required by spec and provided
     """
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
@@ -206,7 +206,7 @@ def test_header_present():
 
 def test_header_not_required_provided():
     """
-    Hheader is not required by spec but provided.
+    Header is not required by spec but provided.
     No error. Header is not included in the message.
     """
     spec["h"]["data_enc"] = "ascii"
@@ -345,51 +345,6 @@ def test_field_encoding_negative(
     with pytest.raises(iso8583.EncodeError) as e:
         iso8583.encode(doc_dec, spec=spec)
     assert e.value.args[0] == expected_error
-
-
-def test_bitmap_remove_secondary():
-    """
-    If 65-128 fields are not in bitmap then remove field 1.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 19
-
-    doc_dec = {
-        "h": "header",
-        "t": "0200",
-        "1": "not needed",
-        "2": "1234567890",
-    }
-
-    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
-
-    assert s == b"header0200\x40\x00\x00\x00\x00\x00\x00\x00101234567890"
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_dec["t"] == "0200"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
-    assert doc_dec["p"] == "4000000000000000"
-
-    assert doc_enc["2"]["len"] == b"10"
-    assert doc_enc["2"]["data"] == b"1234567890"
-    assert doc_dec["2"] == "1234567890"
-
-    assert doc_enc.keys() == set(["h", "t", "p", "2"])
-    assert doc_dec.keys() == set(["h", "t", "p", "2"])
 
 
 # fmt: off
@@ -548,6 +503,42 @@ def test_bitmap_encoding_negative(
     with pytest.raises(iso8583.EncodeError) as e:
         iso8583.encode(doc_dec, spec=spec)
     assert e.value.args[0] == expected_error
+
+
+def test_bitmap_remove_secondary():
+    """If 65-128 fields are not in bitmap then remove field 1."""
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "b"
+    spec["2"]["data_enc"] = "ascii"
+    spec["2"]["len_enc"] = "ascii"
+    spec["2"]["len_type"] = 2
+    spec["2"]["max_len"] = 19
+
+    doc_dec = {
+        "t": "0200",
+        "1": "not needed",
+        "2": "1234567890",
+    }
+
+    s, doc_enc = iso8583.encode(doc_dec, spec=spec)
+
+    assert s == b"0200\x40\x00\x00\x00\x00\x00\x00\x00101234567890"
+
+    assert doc_enc["t"]["len"] == b""
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_dec["t"] == "0200"
+
+    assert doc_enc["p"]["len"] == b""
+    assert doc_enc["p"]["data"] == b"\x40\x00\x00\x00\x00\x00\x00\x00"
+    assert doc_dec["p"] == "4000000000000000"
+
+    assert doc_enc["2"]["len"] == b"10"
+    assert doc_enc["2"]["data"] == b"1234567890"
+    assert doc_dec["2"] == "1234567890"
+
+    assert doc_enc.keys() == set(["t", "p", "2"])
+    assert doc_dec.keys() == set(["t", "p", "2"])
 
 
 # fmt: off
@@ -768,6 +759,12 @@ def test_field_length_encoding(
     ["len_enc", "len_type", "data_len", "expected_error"],
     [
         ("unknown_encoding", 1, 1, "Failed to encode field length, unknown encoding specified: field 2"),
+        ("b", 1, 256, "Failed to encode field length, field length does not fit into configured field size: field 2"),
+        ("ascii", 1, 10, "Failed to encode field length, field length does not fit into configured field size: field 2"),
+        ("bcd", 1, 100, "Failed to encode field length, field length does not fit into configured field size: field 2"),
+        ("b", 2, 65536, "Failed to encode field length, field length does not fit into configured field size: field 2"),
+        ("ascii", 2, 100, "Failed to encode field length, field length does not fit into configured field size: field 2"),
+        ("bcd", 2, 10000, "Failed to encode field length, field length does not fit into configured field size: field 2"),
     ],
 )
 # fmt: on
@@ -786,5 +783,5 @@ def test_field_length_encoding_negative(
     doc_dec = {"t": "0210", "2": "a" * data_len}
 
     with pytest.raises(iso8583.EncodeError) as e:
-        iso8583.encode(doc_dec, spec=spec)
+        t = iso8583.encode(doc_dec, spec=spec)
     assert e.value.args[0] == expected_error
