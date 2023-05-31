@@ -776,9 +776,9 @@ def util_set2field_data(bm, spec, data_enc, len_enc, len_type):
                 # odd length is not allowed, double it up for string translation, e.g.:
                 # length "2" must be "02" to translate to \x02
                 # length "02" must be "0004" to translate to \x00\x02
-                s += bytearray.fromhex(
-                    "{:0{len_type}d}".format(spec[f]["max_len"], len_type=len_type * 2)
-                )
+                s += (spec[f]["max_len"]).to_bytes(
+                len_type, "big", signed=False
+            )
             elif len_enc == "bcd":
                 # odd length is not allowed, double it up for string translation, e.g.:
                 # length "2" must be "02" to translate to \x02
@@ -1426,7 +1426,7 @@ def test_fields_mix():
 
     field_lenght = [0, 1, 2, 3, 4]
     data_encoding = ["b", "ascii", "cp500"]
-    length_encoding = ["bcd", "ascii", "cp500"]
+    length_encoding = ["b", "bcd", "ascii", "cp500"]
 
     bm = set()
     for i in range(2, 65):
@@ -1469,309 +1469,105 @@ def test_fields_mix():
                         assert doc_dec[f] == "{0:04}".format(int(f))
 
 
-def test_field_zero_length_field():
-    """
-    Zero-length field is required and provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
+# fmt: off
+@pytest.mark.parametrize(
+    ["data", "data_enc", "len_type", "max_len", "len_enc", "expected_data"],
+    [
+        (b"", "ascii", 0, 0, "ascii", ""),
+        (b"12", "ascii", 0, 2, "ascii", "12"),
+        (b"0", "ascii", 1, 2, "ascii", ""),
+        (b"212", "ascii", 1, 2, "ascii", "12"),
+    ]
+)
+# fmt: on
+def test_field_decoding(
+    data: bytes,
+    data_enc: str,
+    len_type: int,
+    max_len: int,
+    len_enc: str,
+    expected_data: str,
+):
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
+    spec["2"]["data_enc"] = data_enc
+    spec["2"]["len_enc"] = len_enc
+    spec["2"]["len_type"] = len_type
+    spec["2"]["max_len"] = max_len
 
-    s = b"header0210400000000000000000"
-
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
+    doc_dec, doc_enc = iso8583.decode(b"02004000000000000000" + data, spec=spec)
 
     assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
+    assert doc_enc["t"]["data"] == b"0200"
+    assert doc_dec["t"] == "0200"
 
     assert doc_enc["p"]["len"] == b""
     assert doc_enc["p"]["data"] == b"4000000000000000"
     assert doc_dec["p"] == "4000000000000000"
 
-    assert doc_enc["2"]["len"] == b"00"
-    assert doc_enc["2"]["data"] == b""
-    assert doc_dec["2"] == ""
+    assert doc_enc.keys() == {"t", "p", "2"}
+    assert doc_dec.keys() == {"t", "p", "2"}
 
-    assert doc_enc.keys() == {"h", "t", "p", "2"}
-    assert doc_dec.keys() == {"h", "t", "p", "2"}
+    assert doc_enc["2"]["len"] == data[:len_type]
+    assert doc_enc["2"]["data"] == data[len_type:]
+    assert doc_dec["2"] == expected_data
 
-
-def test_field_length_negative_missing():
-    """
-    Field length is required but not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header02004000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Field length is 0 bytes wide, expecting 2: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_partial():
-    """
-    Field length is required but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header020040000000000000001"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Field length is 1 bytes wide, expecting 2: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_incorrect_encoding():
-    """
-    Field length is required and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "invalid"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header0200400000000000000010"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, unknown encoding specified: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_incorrect_ascii_data():
-    """
-    Field length is required and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header02004000000000000000\xff\xff"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, invalid data: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_incorrect_not_numeric():
-    """
-    Field length is required and provided.
-    However, the length is not numeric ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header02004000000000000000gg"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, non-numeric data: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_incorrect_bcd_data():
-    """
-    BCD field length is required and provided.
-    However, the data is not numeric.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "bcd"
-    spec["2"]["len_type"] = 1
-    spec["2"]["max_len"] = 99
-
-    s = b"header02004000000000000000\xff"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, invalid BCD data: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_leftover_data():
-    """
-    Field length is required and provided.
-    However, there is extra data left in message.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header02104000000000000000003456"
-    with pytest.raises(
-        iso8583.DecodeError, match="Extra data after last field: field 2 pos 28"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_length_negative_over_max():
-    """
-    Field length is required and provided.
-    However, it's over the specified maximum.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 1
-    spec["2"]["max_len"] = 4
-
-    s = b"header020040000000000000008"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Field data is 8 bytes, larger than maximum 4: field 2 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_negative_missing():
-    """
-    Field is required but not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header0200400000000000000002"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 2: field 2 pos 28"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_negative_partial():
-    """
-    Field is required but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header02004000000000000000021"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 1 bytes, expecting 2: field 2 pos 28"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_field_negative_incorrect_encoding():
-    """
-    Field is required and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "invalid"
-    spec["2"]["len_enc"] = "ascii"
-    spec["2"]["len_type"] = 2
-    spec["2"]["max_len"] = 4
-
-    s = b"header0200400000000000000002xx"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, unknown encoding specified: field 2 pos 28",
-    ):
-        iso8583.decode(s, spec=spec)
 
 # fmt: off
 @pytest.mark.parametrize(
-    ["data", "len_type", "max_len", "expected_error"],
+    ["data", "data_enc", "len_type", "max_len", "len_enc", "expected_error"],
     [
-        (b"123456", 0, 4, "Extra data after last field: field 2 pos 24"),
-        (b"02\xff\xff", 2, 4, " Failed to decode field, invalid data: field 2 pos 22"),
+        # Trailing data
+        (b"123456", "ascii", 0, 4, "ascii", "Extra data after last field: field 2 pos 24"),
+        (b"412345", "ascii", 1, 17, "ascii", "Extra data after last field: field 2 pos 25"),
+        (b"012345", "ascii", 1, 17, "ascii", "Extra data after last field: field 2 pos 21"),
+        (b"\x1612345678901234567", "ascii", 1, 17, "bcd", "Extra data after last field: field 2 pos 37"),
+        (b"\x0012345678901234567", "ascii", 1, 17, "bcd", "Extra data after last field: field 2 pos 21"),
+        (b"\x1012345678901234567", "ascii", 1, 17, "b", "Extra data after last field: field 2 pos 37"),
+        (b"\x0012345678901234567", "ascii", 1, 17, "b", "Extra data after last field: field 2 pos 21"),
+        # Partial data
+        (b"12345", "ascii", 0, 6, "ascii", "Field data is 5 bytes, expecting 6: field 2 pos 20"),
+        (b"612345", "ascii", 1, 6, "ascii", "Field data is 5 bytes, expecting 6: field 2 pos 21"),
+        (b"\x1612345", "ascii", 1, 17, "bcd", "Field data is 5 bytes, expecting 16: field 2 pos 21"),
+        (b"\x1012345", "ascii", 1, 17, "b", "Field data is 5 bytes, expecting 16: field 2 pos 21"),
+        # No data
+        (b"", "ascii", 0, 6, "ascii", "Field data is 0 bytes, expecting 6: field 2 pos 20"),
+        (b"6", "ascii", 1, 6, "ascii", "Field data is 0 bytes, expecting 6: field 2 pos 21"),
+        (b"\x16", "ascii", 1, 16, "bcd", "Field data is 0 bytes, expecting 16: field 2 pos 21"),
+        (b"\x10", "ascii", 1, 16, "b", "Field data is 0 bytes, expecting 16: field 2 pos 21"),
+        # Field data over max
+        (b"7", "ascii", 1, 6, "ascii", "Field data is 7 bytes, larger than maximum 6: field 2 pos 20"),
+        (b"7123456", "ascii", 1, 6, "ascii", "Field data is 7 bytes, larger than maximum 6: field 2 pos 20"),
+        (b"\x16123456", "ascii", 1, 15, "bcd", "Field data is 16 bytes, larger than maximum 15: field 2 pos 20"),
+        (b"\x10123456", "ascii", 1, 15, "b", "Field data is 16 bytes, larger than maximum 15: field 2 pos 20"),
+        # Incorrect encoding
+        (b"123456", "invalid", 0, 6, "ascii", "Failed to decode field, unknown encoding specified: field 2 pos 20"),
+        (b"5123456", "ascii", 1, 15, "invalid", "Failed to decode field length, unknown encoding specified: field 2 pos 20"),
+        # Partial field length
+        (b"", "ascii", 1, 17, "ascii", "Field length is 0 bytes wide, expecting 1: field 2 pos 20"),
+        (b"1", "ascii", 2, 17, "ascii", "Field length is 1 bytes wide, expecting 2: field 2 pos 20"),
+        # Other conditions
+        (b"02\xff\xff", "ascii", 2, 4, "ascii", "Failed to decode field, invalid data: field 2 pos 22"),
+        (b"g123456", "ascii", 1, 15, "ascii", "Failed to decode field length, non-numeric data: field 2 pos 20"),
+        (b"\xff123456", "ascii", 1, 15, "ascii", "Failed to decode field length, invalid data: field 2 pos 20"),
+        (b"\x0a123456", "ascii", 1, 15, "bcd", "Failed to decode field length, invalid BCD data: field 2 pos 20"),
     ]
 )
 # fmt: on
 def test_field_decoding_negative(
     data: bytes,
+    data_enc: str,
     len_type: int,
     max_len: int,
+    len_enc: str,
     expected_error: str,
 ):
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
-    spec["2"]["data_enc"] = "ascii"
-    spec["2"]["len_enc"] = "ascii"
+    spec["2"]["data_enc"] = data_enc
+    spec["2"]["len_enc"] = len_enc
     spec["2"]["len_type"] = len_type
     spec["2"]["max_len"] = max_len
     with pytest.raises(iso8583.DecodeError) as e:
