@@ -31,4 +31,5 @@ show_missing = true
 strict = true
 files = [
     "iso8583/**/*.py",
+    "tests/**/*.py",
 ]

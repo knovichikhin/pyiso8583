@@ -384,17 +384,37 @@ def _encode_field(
             field_key,
         )
 
-    # Encode field length
-    if field_spec["len_enc"] in {"b", "bcd"}:
-        # Odd field length type is not allowed for purpose of string
-        # to BCD translation. Double it, e.g.:
+    # Encode binary field length
+    if field_spec["len_enc"] == "b":
+        try:
+            doc_enc[field_key]["len"] = (enc_field_len).to_bytes(
+                len_type, "big", signed=False
+            )
+        except OverflowError:
+            raise EncodeError(
+                "Failed to encode field length, field length does not fit into configured field size",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+    # Encode BCD field length
+    elif field_spec["len_enc"] == "bcd":
+        # Odd field length type is not allowed when translating string BCD. Pad it, e.g.:
         # BCD LVAR length \x09 must be string "09"
         # BCD LLVAR length \x99 must be string "99"
         # BCD LLLVAR length \x09\x99 must be string "0999"
         # BCD LLLLVAR length \x99\x99 must be string "9999"
-        doc_enc[field_key]["len"] = binascii.a2b_hex(
-            "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
-        )
+        bcd_field_len = "{:0{len_type}d}".format(enc_field_len, len_type=len_type * 2)
+
+        if len(bcd_field_len) > (len_type * 2):
+            raise EncodeError(
+                "Failed to encode field length, field length does not fit into configured field size",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+
+        doc_enc[field_key]["len"] = binascii.a2b_hex(bcd_field_len)
     else:
         try:
             doc_enc[field_key]["len"] = bytes(
@@ -414,6 +434,14 @@ def _encode_field(
         except Exception as e:  # pragma: no cover
             raise EncodeError(
                 f"Failed to encode field length, {e}",
+                doc_dec,
+                doc_enc,
+                field_key,
+            ) from None
+
+        if len(doc_enc[field_key]["len"]) > len_type:
+            raise EncodeError(
+                "Failed to encode field length, field length does not fit into configured field size",
                 doc_dec,
                 doc_enc,
                 field_key,

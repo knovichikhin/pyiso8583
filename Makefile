@@ -24,10 +24,6 @@ coverage-clean:
 coverage: coverage-clean
 	python -m pytest --cov=./iso8583
 	python -m coverage html --directory ./htmlcov
-	python -m coverage xml -o coverage.xml
-
-coverage-publish: coverage
-	codecov -f coverage.xml -t $(TOKEN)
 
 # Generate sphinx docs in docs/_build/html/index.html
 docs:

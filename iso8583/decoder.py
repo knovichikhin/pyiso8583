@@ -413,8 +413,26 @@ def _decode_field(
         enc_field_len: int = field_spec["max_len"]
     # Variable field length
     else:
+        # Binary length
+        if field_spec["len_enc"] == "b":
+            try:
+                enc_field_len = int.from_bytes(
+                    s[idx : idx + len_type], "big", signed=False
+                )
+            # It does not seem to be possible to hit this unless
+            # it's a type or input parameter error.
+            # However, keeping this, because you just never know.
+            except Exception as e:  # pragma: no cover
+                raise DecodeError(
+                    f"Failed to decode field length, {e}",
+                    s,
+                    doc_dec,
+                    doc_enc,
+                    idx,
+                    field_key,
+                ) from None
         # BCD length
-        if field_spec["len_enc"] in {"b", "bcd"}:
+        elif field_spec["len_enc"] == "bcd":
             try:
                 enc_field_len = int(s[idx : idx + len_type].hex(), 10)
             except Exception:
