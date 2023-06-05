@@ -4,14 +4,14 @@ import pickle
 import iso8583
 import iso8583.specs
 import pytest
+import typing
 
-spec = copy.deepcopy(iso8583.specs.default)
 
-
-def test_DecodeError_exception():
+def test_DecodeError_exception() -> None:
     """
     Validate DecodeError class
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     s = b""
 
     try:
@@ -25,10 +25,11 @@ def test_DecodeError_exception():
         assert e.args[0] == "Field data is 0 bytes, expecting 4: field t pos 0"
 
 
-def test_DecodeError_exception_pickle():
+def test_DecodeError_exception_pickle() -> None:
     """
     Validate DecodeError class with pickle
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     s = b""
 
     try:
@@ -45,177 +46,37 @@ def test_DecodeError_exception_pickle():
         assert e.args[0] == e_unpickled.args[0]
 
 
-def test_input_type():
+def test_input_type() -> None:
     """
     Decode accepts only bytes or bytesarray.
     """
-    s = {}
+    spec = copy.deepcopy(iso8583.specs.default)
     with pytest.raises(
         TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not dict"
     ):
-        iso8583.decode(s, spec=spec)
+        iso8583.decode({}, spec=spec)  # type: ignore
 
-    s = []
     with pytest.raises(
         TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not list"
     ):
-        iso8583.decode(s, spec=spec)
+        iso8583.decode([], spec=spec)  # type: ignore
 
-    s = (0, 0)
     with pytest.raises(
         TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not tuple"
     ):
-        iso8583.decode(s, spec=spec)
+        iso8583.decode((0, 0), spec=spec)  # type: ignore
 
-    s = "spam"
     with pytest.raises(
         TypeError, match="Encoded ISO8583 data must be bytes or bytearray, not str"
     ):
-        iso8583.decode(s, spec=spec)
+        iso8583.decode("spam", spec=spec)  # type: ignore
 
 
-def test_header_length_negative_missing():
-    """
-    Header length is required but not provided
-    The parser assumes that "he" is the header length.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, non-numeric data: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_length_negative_partial():
-    """
-    Header length is required but partially provided.
-    The parser assumes that "1h" is the header length.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"1header02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, non-numeric data: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_length_negative_incorrect_encoding():
-    """
-    Header length is required and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "invalid"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"06header02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, unknown encoding specified: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_length_negative_incorrect_ascii_data():
-    """
-    Header length is required and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"\xff\xffheader02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, invalid data: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_length_negative_incorrect_not_numeric():
-    """
-    Header length is required and provided.
-    However, the length is not numeric ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 2
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"ggheader02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, non-numeric data: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_length_negative_incorrect_bcd_data():
-    """
-    BCD Header length is required and provided.
-    However, the data is not numeric.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "bcd"
-    spec["h"]["len_type"] = 1
-    spec["h"]["max_len"] = 99
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"\xffheader02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field length, invalid BCD data: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_length_negative_over_max():
-    """
-    Header length is required and provided.
-    However, it's over the specified maximum.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_enc"] = "ascii"
-    spec["h"]["len_type"] = 1
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"8header02000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Field data is 8 bytes, larger than maximum 6: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_ascii_absent():
+def test_header_ascii_absent() -> None:
     """
     ASCII header is not required by spec and not provided
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 0
     spec["t"]["data_enc"] = "ascii"
@@ -236,10 +97,11 @@ def test_header_ascii_absent():
     assert doc_dec.keys() == set(["t", "p"])
 
 
-def test_header_ascii_present():
+def test_header_ascii_present() -> None:
     """
     ASCII header is required by spec and provided
     """
+    spec = copy.deepcopy(iso8583.specs.default)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
@@ -265,21 +127,33 @@ def test_header_ascii_present():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_header_ebcdic_absent():
-    """
-    EBCDIC header is not required by spec and not provided
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["max_len"] = 0
-    spec["t"]["data_enc"] = "ascii"
+# fmt: off
+@pytest.mark.parametrize(
+    ["type_data", "type_data_decoded", "type_enc"],
+    [
+        (b"0210", "0210", "ascii"),
+        (b"ABCD", "ABCD", "ascii"),
+        (b"\xf0\xf2\xf1\xf0", "0210", "cp500"),
+        (b"\x02\x10", "0210", "b"),
+        (b"\xab\xcd", "ABCD", "b"),
+    ]
+)
+# fmt: on
+def test_type_decoding(
+    type_data: bytes,
+    type_data_decoded: str,
+    type_enc: str,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["t"]["data_enc"] = type_enc
     spec["p"]["data_enc"] = "ascii"
 
-    s = b"02100000000000000000"
+    s = type_data + b"0000000000000000"
     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
 
     assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
+    assert doc_enc["t"]["data"] == type_data
+    assert doc_dec["t"] == type_data_decoded
 
     assert doc_enc["p"]["len"] == b""
     assert doc_enc["p"]["data"] == b"0000000000000000"
@@ -289,438 +163,32 @@ def test_header_ebcdic_absent():
     assert doc_dec.keys() == set(["t", "p"])
 
 
-def test_header_ebcdic_present():
-    """
-    EBCDIC header is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "cp500"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
+# fmt: off
+@pytest.mark.parametrize(
+    ["data", "type_enc", "expected_error"],
+    [
+        (b"\xff\xff\xff\xff0000000000000000", "ascii", "Failed to decode field, invalid data: field t pos 0"),
+        (b"02100000000000000000", "invalid_encoding", "Failed to decode field, unknown encoding specified: field t pos 0"),
+        (b"02", "ascii", "Field data is 2 bytes, expecting 4: field t pos 0"),
+        (b"", "ascii", "Field data is 0 bytes, expecting 4: field t pos 0"),
+    ]
+)
+# fmt: on
+def test_type_decoding_negative(
+    data: bytes,
+    type_enc: str,
+    expected_error: str,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["t"]["data_enc"] = type_enc
     spec["p"]["data_enc"] = "ascii"
 
-    s = b"\x88\x85\x81\x84\x85\x9902100000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
+    with pytest.raises(iso8583.DecodeError) as e:
+        iso8583.decode(data, spec=spec)
+    assert e.value.args[0] == expected_error
 
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"\x88\x85\x81\x84\x85\x99"
-    assert doc_dec["h"] == "header"
 
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_header_bcd_absent():
-    """
-    BDC header is not required by spec and not provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["max_len"] = 0
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"02100000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["t", "p"])
-    assert doc_dec.keys() == set(["t", "p"])
-
-
-def test_header_bcd_present():
-    """
-    BCD header is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"\xA1\xA2\xA3\xA4\xA5\xA602100000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"\xA1\xA2\xA3\xA4\xA5\xA6"
-    assert doc_dec["h"] == "A1A2A3A4A5A6"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_header_negative_missing():
-    """
-    String header is required by spec but not provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b""
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 6: field h pos 0"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_negative_partial():
-    """
-    String header is required by spec but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"head"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 4 bytes, expecting 6: field h pos 0"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_negative_incorrect_encoding():
-    """
-    String header is required by spec and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "invalid"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header02100000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, unknown encoding specified: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_negative_incorrect_ascii_data():
-    """
-    ASCII header is required by spec and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"\xff\xff\xff\xff\xff\xff02100000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, invalid data: field h pos 0",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_header_negative_incorrect_bcd_data():
-    """
-    BCD header is required by spec and provided.
-    However, the data is not hex.
-    Note: this passes, "header" is valid hex data when decoding.
-    """
-    spec["h"]["data_enc"] = "b"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header02100000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "686561646572"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_ascii_absent():
-    """
-    ASCII message type is required by spec and not provided
-    Note: here parser picks up message type as "0000" and fails at primary bitmap.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Field data is 12 bytes, expecting 16: field p pos 10",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_ascii_present():
-    """
-    ASCII message type is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header02100000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"0210"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_ebcdic_absent():
-    """
-    EBCDIC message type is required by spec and not provided
-    Note: here parser picks up message type as "0000" and fails at primary bitmap.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "cp500"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Field data is 12 bytes, expecting 16: field p pos 10",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_ebcdic_present():
-    """
-    ASCII message type is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "cp500"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header\xf0\xf2\xf1\xf00000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"\xf0\xf2\xf1\xf0"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_bcd_absent():
-    """
-    BCD message type is required by spec and not provided
-    Note: here parser picks up message type as "\x30\x30" and fails at primary bitmap.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 14 bytes, expecting 16: field p pos 8"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_bcd_present():
-    """
-    ASCII message type is required by spec and provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header\x02\x100000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"\x02\x10"
-    assert doc_dec["t"] == "0210"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def test_type_negative_missing():
-    """
-    Type is required for all messages
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 4: field t pos 6"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_negative_partial():
-    """
-    Message type is required all messages but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header02"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 2 bytes, expecting 4: field t pos 6"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_negative_incorrect_encoding():
-    """
-    Message type is required by spec and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "invalid"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header02100000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, unknown encoding specified: field t pos 6",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_negative_incorrect_ascii_data():
-    """
-    Message type is required by spec and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header\xff\xff\xff\xff0000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, invalid data: field t pos 6",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_type_negative_incorrect_bcd_data():
-    """
-    BCD message type is required by spec and provided.
-    However, the data is not hex.
-    Note: this passes, "ab" is valid hex data when decoding.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "b"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"headerab0000000000000000"
-    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-    assert doc_enc["h"]["len"] == b""
-    assert doc_enc["h"]["data"] == b"header"
-    assert doc_dec["h"] == "header"
-
-    assert doc_enc["t"]["len"] == b""
-    assert doc_enc["t"]["data"] == b"ab"
-    assert doc_dec["t"] == "6162"
-
-    assert doc_enc["p"]["len"] == b""
-    assert doc_enc["p"]["data"] == b"0000000000000000"
-    assert doc_dec["p"] == "0000000000000000"
-
-    assert doc_enc.keys() == set(["h", "t", "p"])
-    assert doc_dec.keys() == set(["h", "t", "p"])
-
-
-def util_set2bitmap(bm):
+def util_set2bitmap(bm: typing.Set[int]) -> bytearray:
     """
     Enable bits specified in a bm set and return a bitmap bytearray
     """
@@ -746,7 +214,13 @@ def util_set2bitmap(bm):
         return s[0:8]
 
 
-def util_set2field_data(bm, spec, data_enc, len_enc, len_type):
+def util_set2field_data(
+    bm: typing.Set[int],
+    spec: typing.Mapping[str, typing.MutableMapping[str, typing.Any]],
+    data_enc: str,
+    len_enc: str,
+    len_type: int,
+) -> bytearray:
     """
     Create dummy field data for fields specified in a bm set and return a bytearray
     Assume that field data is always 2 or 4 bytes representing field number.
@@ -776,9 +250,7 @@ def util_set2field_data(bm, spec, data_enc, len_enc, len_type):
                 # odd length is not allowed, double it up for string translation, e.g.:
                 # length "2" must be "02" to translate to \x02
                 # length "02" must be "0004" to translate to \x00\x02
-                s += (spec[f]["max_len"]).to_bytes(
-                len_type, "big", signed=False
-            )
+                s += (spec[f]["max_len"]).to_bytes(len_type, "big", signed=False)
             elif len_enc == "bcd":
                 # odd length is not allowed, double it up for string translation, e.g.:
                 # length "2" must be "02" to translate to \x02
@@ -801,44 +273,25 @@ def util_set2field_data(bm, spec, data_enc, len_enc, len_type):
     return s
 
 
-def test_primary_bitmap_ascii():
-    """
-    This test will validate bitmap decoding for fields 1-64
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    bm = set()
-    for i in range(2, 65):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "ascii")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-    bm = set()
-    for i in range(64, 2, -1):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "ascii")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-
-def test_primary_bitmap_ascii_mixed_case():
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_data", "bitmap_data_decoded"],
+    [
+        (b"0AA0000000000000", "0AA0000000000000"), # Upper case
+        (b"0Aa0000000000000", "0Aa0000000000000"), # Mixed case
+        (b"0aa0000000000000", "0aa0000000000000"), # Lower case
+    ]
+)
+# fmt: on
+def test_primary_bitmap_ascii_mixed_case(
+    bitmap_data: bytes,
+    bitmap_data_decoded: str,
+) -> None:
     """
     This test makes sure that lower, upper and mixed case bitmap is
     decoded the same way.
     """
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 0
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
 
@@ -855,289 +308,113 @@ def test_primary_bitmap_ascii_mixed_case():
     spec["11"]["max_len"] = 1
     spec["11"]["data_enc"] = "ascii"
 
-    # Upper case
-    s = b"02000AA0000000000000ABCD"
+    s = b"0200" + bitmap_data + b"ABCD"
     doc_dec, doc_enc = iso8583.decode(s, spec)
     assert doc_dec["t"] == "0200"
-    assert doc_dec["p"] == "0AA0000000000000"
+    assert doc_dec["p"] == bitmap_data_decoded
     assert doc_dec["5"] == "A"
     assert doc_dec["7"] == "B"
     assert doc_dec["9"] == "C"
     assert doc_dec["11"] == "D"
     assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"0AA0000000000000"
-    assert doc_enc["5"]["data"] == b"A"
-    assert doc_enc["7"]["data"] == b"B"
-    assert doc_enc["9"]["data"] == b"C"
-    assert doc_enc["11"]["data"] == b"D"
-
-    # Mixed case
-    s = b"02000Aa0000000000000ABCD"
-    doc_dec, doc_enc = iso8583.decode(s, spec)
-    assert doc_dec["t"] == "0200"
-    assert doc_dec["p"] == "0Aa0000000000000"
-    assert doc_dec["5"] == "A"
-    assert doc_dec["7"] == "B"
-    assert doc_dec["9"] == "C"
-    assert doc_dec["11"] == "D"
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"0Aa0000000000000"
-    assert doc_enc["5"]["data"] == b"A"
-    assert doc_enc["7"]["data"] == b"B"
-    assert doc_enc["9"]["data"] == b"C"
-    assert doc_enc["11"]["data"] == b"D"
-
-    # Lower case
-    s = b"02000aa0000000000000ABCD"
-    doc_dec, doc_enc = iso8583.decode(s, spec)
-    assert doc_dec["t"] == "0200"
-    assert doc_dec["p"] == "0aa0000000000000"
-    assert doc_dec["5"] == "A"
-    assert doc_dec["7"] == "B"
-    assert doc_dec["9"] == "C"
-    assert doc_dec["11"] == "D"
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"0aa0000000000000"
+    assert doc_enc["p"]["data"] == bitmap_data
     assert doc_enc["5"]["data"] == b"A"
     assert doc_enc["7"]["data"] == b"B"
     assert doc_enc["9"]["data"] == b"C"
     assert doc_enc["11"]["data"] == b"D"
 
 
-def test_primary_bitmap_ebcdic():
-    """
-    This test will validate bitmap decoding for fields 1-64
-    """
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_enc", "start", "stop", "step"],
+    [
+        ("ascii", 2, 65, 1),
+        ("cp500", 2, 65, 1),
+        ("b", 2, 65, 1),
+        ("ascii", 64, 2, -1),
+        ("cp500", 64, 2, -1),
+        ("b", 64, 2, -1),
+    ]
+)
+# fmt: on
+def test_primary_bitmap_decoding(
+    bitmap_enc: str,
+    start: int,
+    stop: int,
+    step: int,
+) -> None:
+    """This test will validate bitmap decoding for fields 1-64"""
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "cp500"
+    spec["p"]["data_enc"] = bitmap_enc
 
     bm = set()
-    for i in range(2, 65):
+    for i in range(start, stop, step):
         bm.add(i)
         s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "cp500")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-    bm = set()
-    for i in range(64, 2, -1):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "cp500")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-
-def test_primary_bitmap_bcd():
-    """
-    This test will validate bitmap decoding for fields 1-64
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-
-    bm = set()
-    for i in range(2, 65):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += util_set2bitmap(bm)
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-    bm = set()
-    for i in range(64, 2, -1):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += util_set2bitmap(bm)
+        if bitmap_enc == "b":
+            s += util_set2bitmap(bm)
+        else:
+            s += bytearray(util_set2bitmap(bm).hex(), bitmap_enc)
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
         assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
         assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
-def test_primary_bitmap_negative_missing():
-    """
-    Primary bitmap is required for all messages
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_data", "bitmap_enc", "expected_error"],
+    [
+        # Primary bitmap does not enable any field - extra data present
+        (b"0000000000000000extra", "ascii", "Extra data after last field: field p pos 20"),
+        (b"incorrecthexdata", "ascii", "Failed to decode field, non-hex data: field p pos 4"),
+        # Non-ascii data
+        (b"\xff000000000000000", "ascii", "Failed to decode field, invalid data: field p pos 4"),
+        (b"0000000000000000", "invalid_encoding", "Failed to decode field, unknown encoding specified: field p pos 4"),
+        # Partial data
+        (b"0000", "ascii", "Field data is 4 bytes, expecting 16: field p pos 4"),
+        (b"", "ascii", "Field data is 0 bytes, expecting 16: field p pos 4"),
+    ]
+)
+# fmt: on
+def test_primary_bitmap_decoding_negative(
+    bitmap_data: bytes,
+    bitmap_enc: str,
+    expected_error: str,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = bitmap_enc
 
-    s = b"header0200"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 16: field p pos 10"
-    ):
+    s = b"0210" + bitmap_data
+    with pytest.raises(iso8583.DecodeError) as e:
         iso8583.decode(s, spec=spec)
+    assert e.value.args[0] == expected_error
 
 
-def test_primary_bitmap_negative_partial():
-    """
-    Primary bitmap is required for all messages but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0200FFFF"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 4 bytes, expecting 16: field p pos 10"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_primary_bitmap_negative_incorrect_encoding():
-    """
-    Primary bitmap is required for all messages and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "invalid"
-
-    s = b"header02100000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, unknown encoding specified: field p pos 10",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_primary_bitmap_negative_incorrect_ascii_data():
-    """
-    Primary bitmap is required for all messages and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0210\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, invalid data: field p pos 10",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_primary_bitmap_negative_incorrect_ascii_hex():
-    """
-    Primary bitmap is required for all messages and provided.
-    However, the data is not ASCII hex
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0210incorrecthexdata"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, non-hex data: field p pos 10",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_primary_bitmap_negative_incorrect_bcd_data():
-    """
-    BCD primary bitmap is required for all messages and provided.
-    However, the data is not hex.
-    Note: this passes, "00000000" is valid hex data when decoding.
-    It will fail on field parsing, because no fields were provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["3"]["data_enc"] = "ascii"
-    spec["3"]["len_enc"] = "ascii"
-    spec["3"]["len_type"] = 0
-    spec["3"]["max_len"] = 4
-
-    s = b"header021000000000"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 4: field 3 pos 18"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_primary_bitmap_negative_leftover_data():
-    """
-    Primary bitmap is required by spec and provided.
-    However, there is extra data left in message.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-
-    s = b"header0210000000000000000012"
-    with pytest.raises(
-        iso8583.DecodeError, match="Extra data after last field: field p pos 26"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_secondary_bitmap_ascii():
-    """
-    This test will validate bitmap decoding for field 1-128
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-
-    bm = set()
-    for i in range(1, 129):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "ascii")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-    bm = set()
-    for i in range(128, 1, -1):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "ascii")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-
-def test_secondary_bitmap_ascii_mixed_case():
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_data", "bitmap_data_decoded"],
+    [
+        (b"0AA0000000000000", "0AA0000000000000"), # Upper case
+        (b"0Aa0000000000000", "0Aa0000000000000"), # Mixed case
+        (b"0aa0000000000000", "0aa0000000000000"), # Lower case
+    ]
+)
+# fmt: on
+def test_secondary_bitmap_ascii_mixed_case(
+    bitmap_data: bytes,
+    bitmap_data_decoded: str,
+) -> None:
     """
     This test makes sure that lower, upper and mixed case bitmap is
     decoded the same way.
     """
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 0
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
     spec["1"]["data_enc"] = "ascii"
@@ -1155,269 +432,103 @@ def test_secondary_bitmap_ascii_mixed_case():
     spec["75"]["max_len"] = 1
     spec["75"]["data_enc"] = "ascii"
 
-    # Upper case
-    s = b"020080000000000000000AA0000000000000ABCD"
+    s = b"02008000000000000000" + bitmap_data + b"ABCD"
     doc_dec, doc_enc = iso8583.decode(s, spec)
     assert doc_dec["t"] == "0200"
     assert doc_dec["p"] == "8000000000000000"
-    assert doc_dec["1"] == "0AA0000000000000"
+    assert doc_dec["1"] == bitmap_data_decoded
     assert doc_dec["69"] == "A"
     assert doc_dec["71"] == "B"
     assert doc_dec["73"] == "C"
     assert doc_dec["75"] == "D"
     assert doc_enc["t"]["data"] == b"0200"
     assert doc_enc["p"]["data"] == b"8000000000000000"
-    assert doc_enc["1"]["data"] == b"0AA0000000000000"
-    assert doc_enc["69"]["data"] == b"A"
-    assert doc_enc["71"]["data"] == b"B"
-    assert doc_enc["73"]["data"] == b"C"
-    assert doc_enc["75"]["data"] == b"D"
-
-    # Mixed case
-    s = b"020080000000000000000Aa0000000000000ABCD"
-    doc_dec, doc_enc = iso8583.decode(s, spec)
-    assert doc_dec["t"] == "0200"
-    assert doc_dec["p"] == "8000000000000000"
-    assert doc_dec["1"] == "0Aa0000000000000"
-    assert doc_dec["69"] == "A"
-    assert doc_dec["71"] == "B"
-    assert doc_dec["73"] == "C"
-    assert doc_dec["75"] == "D"
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"8000000000000000"
-    assert doc_enc["1"]["data"] == b"0Aa0000000000000"
-    assert doc_enc["69"]["data"] == b"A"
-    assert doc_enc["71"]["data"] == b"B"
-    assert doc_enc["73"]["data"] == b"C"
-    assert doc_enc["75"]["data"] == b"D"
-
-    # Lower case
-    s = b"020080000000000000000aa0000000000000ABCD"
-    doc_dec, doc_enc = iso8583.decode(s, spec)
-    assert doc_dec["t"] == "0200"
-    assert doc_dec["p"] == "8000000000000000"
-    assert doc_dec["1"] == "0aa0000000000000"
-    assert doc_dec["69"] == "A"
-    assert doc_dec["71"] == "B"
-    assert doc_dec["73"] == "C"
-    assert doc_dec["75"] == "D"
-    assert doc_enc["t"]["data"] == b"0200"
-    assert doc_enc["p"]["data"] == b"8000000000000000"
-    assert doc_enc["1"]["data"] == b"0aa0000000000000"
+    assert doc_enc["1"]["data"] == bitmap_data
     assert doc_enc["69"]["data"] == b"A"
     assert doc_enc["71"]["data"] == b"B"
     assert doc_enc["73"]["data"] == b"C"
     assert doc_enc["75"]["data"] == b"D"
 
 
-def test_secondary_bitmap_ebcdic():
-    """
-    This test will validate bitmap decoding for field 1-128
-    """
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_enc", "start", "stop", "step"],
+    [
+        ("ascii", 1, 129, 1),
+        ("cp500", 1, 129, 1),
+        ("b", 1, 129, 1),
+        ("ascii", 128, 1, -1),
+        ("cp500", 128, 1, -1),
+        ("b", 128, 1, -1),
+    ]
+)
+# fmt: on
+def test_secondary_bitmap_decoding(
+    bitmap_enc: str,
+    start: int,
+    stop: int,
+    step: int,
+) -> None:
+    """This test will validate bitmap decoding for field 1-128"""
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["len_type"] = 0
     spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "cp500"
-    spec["1"]["data_enc"] = "cp500"
+    spec["p"]["data_enc"] = bitmap_enc
+    spec["1"]["data_enc"] = bitmap_enc
 
     bm = set()
-    for i in range(1, 129):
+    for i in range(start, stop, step):
         bm.add(i)
         s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "cp500")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-    bm = set()
-    for i in range(128, 1, -1):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += bytearray(util_set2bitmap(bm).hex(), "cp500")
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-
-def test_secondary_bitmap_bcd():
-    """
-    This test will validate bitmap decoding for field 1-128
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["1"]["data_enc"] = "b"
-
-    bm = set()
-    for i in range(1, 129):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += util_set2bitmap(bm)
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-
-    bm = set()
-    for i in range(128, 1, -1):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        s += util_set2bitmap(bm)
+        if bitmap_enc == "b":
+            s += util_set2bitmap(bm)
+        else:
+            s += bytearray(util_set2bitmap(bm).hex(), bitmap_enc)
         s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
         doc_dec, doc_enc = iso8583.decode(s, spec=spec)
         assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
         assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
-def test_secondary_bitmap_negative_missing():
-    """
-    Secondary bitmap is required but not provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_data", "bitmap_enc", "expected_error"],
+    [
+        # Secondary bitmap does not enable any field - extra data present
+        (b"0000000000000000extra", "ascii", "Extra data after last field: field 1 pos 36"),
+        (b"incorrecthexdata", "ascii", "Failed to decode field, non-hex data: field 1 pos 20"),
+        # Non-ascii data
+        (b"\xff000000000000000", "ascii", "Failed to decode field, invalid data: field 1 pos 20"),
+        (b"0000000000000000", "invalid_encoding", "Failed to decode field, unknown encoding specified: field 1 pos 20"),
+        # Partial data
+        (b"0000", "ascii", "Field data is 4 bytes, expecting 16: field 1 pos 20"),
+        (b"", "ascii", "Field data is 0 bytes, expecting 16: field 1 pos 20"),
+    ]
+)
+# fmt: on
+def test_secondary_bitmap_decoding_negative(
+    bitmap_data: bytes,
+    bitmap_enc: str,
+    expected_error: str,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
+    spec["1"]["data_enc"] = bitmap_enc
 
-    s = b"header02008000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 16: field 1 pos 26"
-    ):
+    s = b"02108000000000000000" + bitmap_data
+    with pytest.raises(iso8583.DecodeError) as e:
         iso8583.decode(s, spec=spec)
+    assert e.value.args[0] == expected_error
 
 
-def test_secondary_bitmap_negative_partial():
-    """
-    Secondary bitmap is required for all messages but partially provided.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-
-    s = b"header02008000000000000000FFFF"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 4 bytes, expecting 16: field 1 pos 26"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_secondary_bitmap_negative_incorrect_encoding():
-    """
-    Secondary bitmap is required and provided.
-    However, the spec encoding is not correct
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "invalid"
-
-    s = b"header021080000000000000000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, unknown encoding specified: field 1 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_secondary_bitmap_negative_incorrect_ascii_data():
-    """
-    Secondary bitmap is required for all messages and provided.
-    However, the data is not ASCII
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-
-    s = b"header02108000000000000000\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, invalid data: field 1 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_secondary_bitmap_negative_incorrect_ascii_hex():
-    """
-    Secondary bitmap is required for all messages and provided.
-    However, the data is not ASCII hex
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-
-    s = b"header02108000000000000000incorrecthexdata"
-    with pytest.raises(
-        iso8583.DecodeError,
-        match="Failed to decode field, non-hex data: field 1 pos 26",
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_secondary_bitmap_negative_incorrect_bcd_data():
-    """
-    BCD secondary bitmap is required for all messages and provided.
-    However, the data is not hex.
-    Note: this passes, "00000000" is valid hex data when decoding.
-    It will fail on field parsing, because no fields were provided
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "b"
-    spec["67"]["len_enc"] = "ascii"
-    spec["67"]["data_enc"] = "ascii"
-    spec["67"]["len_type"] = 0
-    spec["67"]["max_len"] = 4
-
-    s = b"header0210800000000000000000000000"
-    with pytest.raises(
-        iso8583.DecodeError, match="Field data is 0 bytes, expecting 4: field 67 pos 34"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_secondary_bitmap_negative_leftover_data():
-    """
-    Secondary bitmap is required by spec and provided.
-    However, there is extra data left in message.
-    """
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
-    spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-
-    s = b"header02108000000000000000000000000000000012"
-    with pytest.raises(
-        iso8583.DecodeError, match="Extra data after last field: field 1 pos 42"
-    ):
-        iso8583.decode(s, spec=spec)
-
-
-def test_fields_mix():
+def test_fields_mix() -> None:
     """
     This test will validate field decoding with BCD, ASCII and EBCDIC mix
     """
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["h"]["data_enc"] = "ascii"
     spec["h"]["max_len"] = 0
     spec["t"]["data_enc"] = "ascii"
@@ -1487,7 +598,7 @@ def test_field_decoding(
     max_len: int,
     len_enc: str,
     expected_data: str,
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
@@ -1562,7 +673,7 @@ def test_field_decoding_negative(
     max_len: int,
     len_enc: str,
     expected_error: str,
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"

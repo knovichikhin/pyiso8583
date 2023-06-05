@@ -419,9 +419,12 @@ def _decode_field(
                 enc_field_len = int.from_bytes(
                     s[idx : idx + len_type], "big", signed=False
                 )
-            except Exception:
+            # It does not seem to be possible to hit this unless
+            # it's a type or input parameter error.
+            # However, keeping this, because you just never know.
+            except Exception as e:  # pragma: no cover
                 raise DecodeError(
-                    "Failed to decode field length, invalid data",
+                    f"Failed to decode field length, {e}",
                     s,
                     doc_dec,
                     doc_enc,

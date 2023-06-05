@@ -7,7 +7,7 @@ import iso8583.specs
 import pytest
 
 
-def test_EncodeError_exception():
+def test_EncodeError_exception() -> None:
     """
     Validate EncodeError class
     """
@@ -34,7 +34,7 @@ def test_EncodeError_exception():
         )
 
 
-def test_EncodeError_exception_pickle():
+def test_EncodeError_exception_pickle() -> None:
     """
     Validate EncodeError class with pickle
     """
@@ -62,14 +62,11 @@ def test_EncodeError_exception_pickle():
         assert e.args[0] == e_unpickled.args[0]
 
 
-def test_non_string_field_keys():
+def test_non_string_field_keys() -> None:
     """
     Input dictionary contains non
     """
     spec = copy.deepcopy(iso8583.specs.default)
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "b"
     spec["2"]["len_type"] = 2
@@ -81,53 +78,41 @@ def test_non_string_field_keys():
     spec["3"]["data_enc"] = "ascii"
     spec["3"]["len_enc"] = "ascii"
 
-    doc_dec = {"h": "header", "t": "0210", 2: "1122"}
     with pytest.raises(
         iso8583.EncodeError,
         match="Dictionary contains invalid fields .2.: field p",
     ):
-        iso8583.encode(doc_dec, spec=spec)
+        iso8583.encode({"t": "0210", 2: "1122"}, spec=spec)  # type: ignore
 
-    doc_dec = {"h": "header", "t": "0210", 2: "1122", 3: "3344"}
     with pytest.raises(
         iso8583.EncodeError,
         match="Dictionary contains invalid fields .2, 3.: field p",
     ):
-        iso8583.encode(doc_dec, spec=spec)
+        iso8583.encode({"t": "0210", 2: "1122", 3: "3344"}, spec=spec)  # type: ignore
 
-    doc_dec = {"h": "header", "t": "0210", 2.5: "1122", 3.5: "3344"}
     with pytest.raises(
         iso8583.EncodeError,
         match="Dictionary contains invalid fields .2.5, 3.5.: field p",
     ):
-        iso8583.encode(doc_dec, spec=spec)
+        iso8583.encode({"t": "0210", 2.5: "1122", 3.5: "3344"}, spec=spec)  # type: ignore
 
-    doc_dec = {"h": "header", "t": "0210", 2.5: "1122", 3.5: "3344"}
-    with pytest.raises(
-        iso8583.EncodeError,
-        match="Dictionary contains invalid fields .2.5, 3.5.: field p",
-    ):
-        iso8583.encode(doc_dec, spec=spec)
-
-    doc_dec = {"h": "header", "t": "0210", (1, 2): "1122", (3, 4): "3344"}
     with pytest.raises(
         iso8583.EncodeError,
         match="Dictionary contains invalid fields ..1, 2., .3, 4..: field p",
     ):
-        iso8583.encode(doc_dec, spec=spec)
+        iso8583.encode({"t": "0210", (1, 2): "1122", (3, 4): "3344"}, spec=spec)  # type: ignore
 
 
-def test_input_type():
+def test_input_type() -> None:
     """
     Encode accepts only dict.
     """
     spec = copy.deepcopy(iso8583.specs.default)
-    s = b""
     with pytest.raises(TypeError, match="Decoded ISO8583 data must be dict, not bytes"):
-        iso8583.encode(s, spec=spec)
+        iso8583.encode(b"", spec=spec)  # type: ignore
 
 
-def test_header_no_key():
+def test_header_no_key() -> None:
     """
     Message header is required and key is not provided
     """
@@ -149,7 +134,7 @@ def test_header_no_key():
         iso8583.encode(doc_dec, spec=spec)
 
 
-def test_header_absent():
+def test_header_absent() -> None:
     """
     Header is not required by spec and not provided
     """
@@ -176,7 +161,7 @@ def test_header_absent():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_header_present():
+def test_header_present() -> None:
     """
     Header is required by spec and provided
     """
@@ -209,7 +194,7 @@ def test_header_present():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_header_not_required_provided():
+def test_header_not_required_provided() -> None:
     """
     Header is not required by spec but provided.
     No error. Header is not included in the message.
@@ -238,7 +223,7 @@ def test_header_not_required_provided():
     assert doc_dec.keys() == set(["h", "t", "p"])
 
 
-def test_type_no_key():
+def test_type_no_key() -> None:
     """
     Message type is required and key is not provided
     """
@@ -284,70 +269,12 @@ def test_type_encoding_negative(
     data_enc: str,
     data: str,
     expected_error: str,
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = data_enc
     spec["t"]["len_enc"] = "ascii"
 
     doc_dec = {"t": data}
-
-    with pytest.raises(iso8583.EncodeError) as e:
-        iso8583.encode(doc_dec, spec=spec)
-    assert e.value.args[0] == expected_error
-
-
-# fmt: off
-@pytest.mark.parametrize(
-    ["data_enc", "data", "len_type", "max_len", "expected_error"],
-    [
-        ("unknown_encoding", "a", 0, 1, "Failed to encode field, unknown encoding specified: field 2"),
-        ("b", "xx", 0, 1, "Failed to encode field, non-hex data: field 2"),
-        ("ascii", "\xff", 0, 1, "Failed to encode field, invalid data: field 2"),
-
-        # Fixed
-        ("b", "a", 0, 1, "Failed to encode field, odd-length hex data: field 2"),
-        ("b", "0", 0, 1, "Failed to encode field, odd-length hex data: field 2"),
-        # No data
-        ("b", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
-        ("b", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
-        ("ascii", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
-        ("cp500", "", 0, 1, "Field data is 0 bytes, expecting 1: field 2"),
-        # Less data than expected
-        ("b", "aaaa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
-        ("b", "0000", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
-        ("ascii", "aa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
-        ("cp500", "aa", 0, 3, "Field data is 2 bytes, expecting 3: field 2"),
-        # More data than expected
-        ("b", "aaaa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
-        ("b", "0000", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
-        ("ascii", "aa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
-        ("cp500", "aa", 0, 1, "Field data is 2 bytes, expecting 1: field 2"),
-
-        # Variable
-        ("b", "a", 1, 10, "Failed to encode field, odd-length hex data: field 2"),
-        ("b", "0", 1, 10, "Failed to encode field, odd-length hex data: field 2"),
-        # More data than expected
-        ("b", "aaaa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
-        ("b", "0000", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
-        ("ascii", "aa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
-        ("cp500", "aa", 1, 1, "Field data is 2 bytes, larger than maximum 1: field 2"),
-    ]
-)
-# fmt: on
-def test_field_encoding_negative(
-    data_enc: str,
-    data: str,
-    len_type: int,
-    max_len: int,
-    expected_error: str,
-):
-    spec = copy.deepcopy(iso8583.specs.default_ascii)
-    spec["2"]["len_type"] = len_type
-    spec["2"]["max_len"] = max_len
-    spec["2"]["data_enc"] = data_enc
-    spec["2"]["len_enc"] = "ascii"
-
-    doc_dec = {"t": "0210", "2": data}
 
     with pytest.raises(iso8583.EncodeError) as e:
         iso8583.encode(doc_dec, spec=spec)
@@ -425,13 +352,13 @@ def test_bitmap_encoding(
     expected_primary_data: str,
     expected_secondary_enc_data: typing.Optional[bytes],
     expected_secondary_data: typing.Optional[str],
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["p"]["data_enc"] = primary_data_enc
     spec["1"]["data_enc"] = secondary_data_enc
 
     doc_dec = {"t": "0200"}
-    expected_message_payload: typing.List[str] = []
+    expected_message_payload: typing.List[bytes] = []
 
     for enabled_field in enabled_fields:
         spec[enabled_field]["len_type"] = 3
@@ -493,7 +420,7 @@ def test_bitmap_encoding_negative(
     secondary_data_enc: str,
     enabled_fields: typing.Set[str],
     expected_error: str,
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["p"]["data_enc"] = primary_data_enc
     spec["1"]["data_enc"] = secondary_data_enc
@@ -512,7 +439,7 @@ def test_bitmap_encoding_negative(
     assert e.value.args[0] == expected_error
 
 
-def test_bitmap_remove_secondary():
+def test_bitmap_remove_secondary() -> None:
     """If 65-128 fields are not in bitmap then remove field 1."""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
@@ -585,7 +512,7 @@ def test_field_encoding(
     max_len: int,
     expected_encoded_length: bytes,
     expected_encoded_data: bytes,
-):
+) -> None:
     """Test various results of field encoding with an ascii length (easier to check correct length)"""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["2"]["len_type"] = len_type
@@ -661,7 +588,7 @@ def test_field_encoding_negative(
     len_type: int,
     max_len: int,
     expected_error: str,
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["2"]["len_type"] = len_type
     spec["2"]["max_len"] = max_len
@@ -730,7 +657,7 @@ def test_field_length_encoding(
     len_type: str,
     data_len: int,
     expected_encoded_length: bytes,
-):
+) -> None:
     """Test various results of length encoding with a simple ascii field"""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["2"]["len_type"] = len_type
@@ -780,7 +707,7 @@ def test_field_length_encoding_negative(
     len_type: str,
     data_len: int,
     expected_error: str,
-):
+) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["2"]["len_type"] = len_type
     spec["2"]["max_len"] = data_len

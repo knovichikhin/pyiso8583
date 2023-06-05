@@ -84,7 +84,6 @@ def _pp_field(
     line_width: int,
     field_key: str,
 ) -> None:
-
     indent = 5
     stream.write("{index:3s}".format(index=str(field_key)))
 
