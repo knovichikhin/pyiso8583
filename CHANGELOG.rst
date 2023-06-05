@@ -1,7 +1,15 @@
+3.0.0 - 2023-06-05
+------------------
+- Add support for binary field length
+- Drop support for Python 3.6
+- Migration from 2.x.x:
+  - 2.x.x used `len_enc` set to `b` and `bcd` to represent BCD length encoding.
+  - 3.x.x changed that where `len_enc` set to `b` represents binary length encoding.
+  - To migrate from 2.x.x update `len_enc` in all specificatations from `b` to `bcd`.
+
 2.2.0 - 2022-01-30
 ------------------
-- Provide friendlier error messages when failing to decode field, field length, and bitmap.
-- Provide friendlier error messages when failing to encode field, field length, and bitmap.
+- Provide friendlier error messages when failing to encode/decode field, field length, and bitmap.
 - Clarify Binary-coded decimal field length configuration. Added ``bcd`` value to ``len_enc``
   which is the same as the existing ``b`` value. Both mean that the length is to be encoded as BCD.
 
