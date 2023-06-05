@@ -44,25 +44,25 @@ Each field defines these properties:
   Expressed as a number of bytes in field length. For example,
   ASCII LLVAR length takes up 2 bytes (``b'00' - b'99'``).
   BCD LLVAR length can take up only 1 byte (``b'\x00' - b'\x99'``).
-  The same applies to binary where LLVAR can take up only 1 byte (``b'\x00' - b'\xFF'``).
+  For binary lengths lenght type specifies the width of an unsigned integer.
   Therefore, **len_type** depends on the type of **len_enc** being used.
   BCD and binary **len_enc** can fit higher length ranges in fewer bytes.
 
-  +--------------+------------------------------------------------+
-  |              |              **len_enc**                       |
-  |              +----------------+-------------------------------+
-  | **len_type** | ASCII / EBCDIC | Binary-Coded Decimal / Binary |
-  +--------------+----------------+-------------------------------+
-  |  Fixed       |          ``0`` |                         ``0`` |
-  +--------------+----------------+-------------------------------+
-  |  LVAR        |          ``1`` |                         ``1`` |
-  +--------------+----------------+-------------------------------+
-  |  LLVAR       |          ``2`` |                         ``1`` |
-  +--------------+----------------+-------------------------------+
-  |  LLLVAR      |          ``3`` |                         ``2`` |
-  +--------------+----------------+-------------------------------+
-  |  LLLLVAR     |          ``4`` |                         ``2`` |
-  +--------------+----------------+-------------------------------+
+  +--------------+--------------------------------------------------------+
+  |              |                      **len_enc**                       |
+  |              +----------------+----------------------+----------------+
+  | **len_type** | ASCII / EBCDIC | Binary-Coded Decimal |     Binary     |
+  +--------------+----------------+----------------------+----------------+
+  |  Fixed       |          ``0`` |                ``0`` |          ``0`` |
+  +--------------+----------------+----------------------+----------------+
+  |  LVAR        |          ``1`` |                ``1`` |  ``1`` (uint8) |
+  +--------------+----------------+----------------------+----------------+
+  |  LLVAR       |          ``2`` |                ``1`` |  ``1`` (uint8) |
+  +--------------+----------------+----------------------+----------------+
+  |  LLLVAR      |          ``3`` |                ``2`` | ``2`` (uint16) |
+  +--------------+----------------+----------------------+----------------+
+  |  LLLLVAR     |          ``4`` |                ``2`` | ``2`` (uint16) |
+  +--------------+----------------+----------------------+----------------+
 
 - **max_len** - field maximum length in bytes or nibbles. For fixed fields
   **max_len** defines the length of the field.
@@ -168,12 +168,22 @@ Length encoding makes no difference, since the field has no length::
 
     specification["6"] = {
         "data_enc": "b",
-        "len_enc": "bcd",
+        "len_enc": "ascii",
         "len_type": 0,
         "len_count": "nibbles",
         "right_pad": "0",
         "max_len": 3,
         "desc": "Binary or BCD fixed field measured in nibbles, e.g. \x11\x10"
+    }
+
+Field 7, a 16-byte ascii field with binary length::
+
+    specification["2"] = {
+        "data_enc": "ascii",
+        "len_enc": "b",
+        "len_type": 1,
+        "max_len": 16,
+        "desc": "ASCII field with binary length, e.g. \x101234567890123456"
     }
 
 Sample Message Specifications
