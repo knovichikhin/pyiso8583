@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(".."))  # project root
 # -- Project information -----------------------------------------------------
 
 project = "iso8583"
-copyright = "2020, Konstantin Novichikhin"
+copyright = "2024, Konstantin Novichikhin"
 author = "Konstantin Novichikhin"
 
 import iso8583
@@ -40,6 +40,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
+    'sphinx_rtd_theme',
 ]
 
 # Napoleon settings
