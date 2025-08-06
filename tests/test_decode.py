@@ -188,44 +188,14 @@ def test_type_decoding_negative(
     assert e.value.args[0] == expected_error
 
 
-def util_set2bitmap(bm: typing.Set[int]) -> bytearray:
-    """
-    Enable bits specified in a bm set and return a bitmap bytearray
-    """
-    s = bytearray(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
-
-    # Disable secondary bitmap if no 65-128 fields are present
-    if bm.isdisjoint(range(65, 129)):
-        bm.discard(1)
-    else:
-        bm.add(1)
-
-    for f in bm:
-        f -= 1  # bms start at 1. Make them zero-bound
-        byte = int(f / 8)  # Place this particular bit in a byte where it belongs
-        bit = 7 - (
-            f - byte * 8
-        )  # Determine bit to enable. 7th or left-most is fields 1, 9, 17, etc.
-        s[byte] |= 1 << bit
-
-    if 1 in bm:
-        return s
-    else:
-        return s[0:8]
-
-
-def util_set2field_data(
-    bm: typing.Set[int],
-    spec: typing.Mapping[str, typing.MutableMapping[str, typing.Any]],
-    data_enc: str,
-    len_enc: str,
-    len_type: int,
+def util_generate_field_data(
+    bm: typing.Iterable[int],
+    spec: typing.Dict[str, typing.Dict[str, typing.Any]],
 ) -> bytearray:
     """
     Create dummy field data for fields specified in a bm set and return a bytearray
-    Assume that field data is always 2 or 4 bytes representing field number.
-    For example, field #65 is represented as "0065" with length 4 or
-    \x00\x65 with length 2.
+    Assume that field data is always 4 bytes representing field number.
+    For example, field #65 is represented as "0065".
     """
 
     s = bytearray()
@@ -234,41 +204,14 @@ def util_set2field_data(
         if f == "1":
             continue
 
-        # Binary data is always half of ASCII/EBCDIC data
-        if data_enc == "b":
-            spec[f]["max_len"] = 2
-        else:
-            spec[f]["max_len"] = 4
+        spec[f] = {
+            "max_len": 4,
+            "data_enc": "ascii",
+            "len_enc": "ascii",
+            "len_type": 0,
+        }
 
-        spec[f]["data_enc"] = data_enc
-        spec[f]["len_enc"] = len_enc
-        spec[f]["len_type"] = len_type
-
-        # Append length according to type and encoding
-        if len_type > 0:
-            if len_enc == "b":
-                # odd length is not allowed, double it up for string translation, e.g.:
-                # length "2" must be "02" to translate to \x02
-                # length "02" must be "0004" to translate to \x00\x02
-                s += (spec[f]["max_len"]).to_bytes(len_type, "big", signed=False)
-            elif len_enc == "bcd":
-                # odd length is not allowed, double it up for string translation, e.g.:
-                # length "2" must be "02" to translate to \x02
-                # length "02" must be "0004" to translate to \x00\x02
-                s += bytearray.fromhex(
-                    "{:0{len_type}d}".format(spec[f]["max_len"], len_type=len_type * 2)
-                )
-            else:
-                s += bytearray(
-                    "{:0{len_type}d}".format(spec[f]["max_len"], len_type=len_type),
-                    len_enc,
-                )
-
-        # Append data according to encoding
-        if data_enc == "b":
-            s += bytearray.fromhex("{:04d}".format(int(f)))
-        else:
-            s += bytearray("{:04d}".format(int(f)), data_enc)
+        s += bytearray("{:04d}".format(int(f)), "ascii")
 
     return s
 
@@ -326,22 +269,18 @@ def test_primary_bitmap_ascii_mixed_case(
 
 # fmt: off
 @pytest.mark.parametrize(
-    ["bitmap_enc", "start", "stop", "step"],
+    ["bitmap_enc", "bitmap", "expected_fields"],
     [
-        ("ascii", 2, 65, 1),
-        ("cp500", 2, 65, 1),
-        ("b", 2, 65, 1),
-        ("ascii", 64, 2, -1),
-        ("cp500", 64, 2, -1),
-        ("b", 64, 2, -1),
+        ("ascii", b"7010001102C04804", [2, 3, 4, 12, 28, 32, 39, 41, 42, 50, 53, 62]),
+        ("cp500", b"\xf7\xf0\xf1\xf0\xf0\xf0\xf1\xf1\xf0\xf2\xc3\xf0\xf4\xf8\xf0\xf4", [2, 3, 4, 12, 28, 32, 39, 41, 42, 50, 53, 62]),
+        ("b", b"\x70\x10\x00\x11\x02\xC0\x48\x04", [2, 3, 4, 12, 28, 32, 39, 41, 42, 50, 53, 62]),
     ]
 )
 # fmt: on
 def test_primary_bitmap_decoding(
     bitmap_enc: str,
-    start: int,
-    stop: int,
-    step: int,
+    bitmap: bytes,
+    expected_fields: typing.List[int],
 ) -> None:
     """This test will validate bitmap decoding for fields 1-64"""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
@@ -351,18 +290,13 @@ def test_primary_bitmap_decoding(
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = bitmap_enc
 
-    bm = set()
-    for i in range(start, stop, step):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        if bitmap_enc == "b":
-            s += util_set2bitmap(bm)
-        else:
-            s += bytearray(util_set2bitmap(bm).hex(), bitmap_enc)
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+    bm = set(expected_fields)
+    s = bytearray(b"header0210")
+    s = s + bitmap
+    s += util_generate_field_data(bm, spec)
+    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
+    assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+    assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
 
 
 # fmt: off
@@ -452,44 +386,37 @@ def test_secondary_bitmap_ascii_mixed_case(
 
 # fmt: off
 @pytest.mark.parametrize(
-    ["bitmap_enc", "start", "stop", "step"],
+    ["bitmap_enc", "bitmap_data", "expected_fields"],
     [
-        ("ascii", 1, 129, 1),
-        ("cp500", 1, 129, 1),
-        ("b", 1, 129, 1),
-        ("ascii", 128, 1, -1),
-        ("cp500", 128, 1, -1),
-        ("b", 128, 1, -1),
+        ("ascii", b"7010001102C04804", [66, 67, 68, 76, 92, 96, 103, 105, 106, 114, 117, 126]),
+        ("cp500", b"\xf7\xf0\xf1\xf0\xf0\xf0\xf1\xf1\xf0\xf2\xc3\xf0\xf4\xf8\xf0\xf4", [66, 67, 68, 76, 92, 96, 103, 105, 106, 114, 117, 126]),
+        ("b", b"\x70\x10\x00\x11\x02\xC0\x48\x04", [66, 67, 68, 76, 92, 96, 103, 105, 106, 114, 117, 126]),
     ]
 )
 # fmt: on
 def test_secondary_bitmap_decoding(
     bitmap_enc: str,
-    start: int,
-    stop: int,
-    step: int,
+    bitmap_data: bytes,
+    expected_fields: typing.List[int],
 ) -> None:
     """This test will validate bitmap decoding for field 1-128"""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["len_type"] = 0
-    spec["h"]["max_len"] = 6
     spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = bitmap_enc
+    spec["p"]["data_enc"] = "ascii"
     spec["1"]["data_enc"] = bitmap_enc
 
-    bm = set()
-    for i in range(start, stop, step):
-        bm.add(i)
-        s = bytearray(b"header0210")
-        if bitmap_enc == "b":
-            s += util_set2bitmap(bm)
-        else:
-            s += bytearray(util_set2bitmap(bm).hex(), bitmap_enc)
-        s += util_set2field_data(bm, spec, "ascii", "ascii", 0)
-        doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-        assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
-        assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["h", "t", "p"])
+    primary_fields = [2, 3, 4, 12, 28, 32, 39, 41, 42, 50, 53, 62]
+    allFields = set(expected_fields + primary_fields)
+
+    s = bytearray(b"0210")
+    s += b"F010001102C04804"  # Primary: DE1 + primary test fields
+    s += bitmap_data  # DE1: Secondary
+    s += util_generate_field_data(
+        allFields, spec
+    )  # Generate primary and secondary fields
+    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
+    assert doc_enc.keys() ^ set([str(f) for f in allFields]) == set(["t", "p", "1"])
+    assert doc_dec.keys() ^ set([str(f) for f in allFields]) == set(["t", "p", "1"])
 
 
 # fmt: off
@@ -524,60 +451,83 @@ def test_secondary_bitmap_decoding_negative(
     assert e.value.args[0] == expected_error
 
 
-def test_fields_mix() -> None:
-    """
-    This test will validate field decoding with BCD, ASCII and EBCDIC mix
-    """
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_enc", "bitmap_data", "expected_fields"],
+    [
+        ("ascii", b"7010001102C04804", [130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]),
+        ("cp500", b"\xf7\xf0\xf1\xf0\xf0\xf0\xf1\xf1\xf0\xf2\xc3\xf0\xf4\xf8\xf0\xf4", [130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]),
+        ("b", b"\x70\x10\x00\x11\x02\xC0\x48\x04", [130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]),
+    ]
+)
+# fmt: on
+def test_tertiary_bitmap_decoding(
+    bitmap_enc: str,
+    bitmap_data: bytes,
+    expected_fields: typing.List[int],
+) -> None:
+    """This test will validate bitmap decoding for field 1-128"""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
-    spec["h"]["data_enc"] = "ascii"
-    spec["h"]["max_len"] = 0
     spec["t"]["data_enc"] = "ascii"
-    spec["p"]["data_enc"] = "b"
-    spec["1"]["data_enc"] = "b"
+    spec["p"]["data_enc"] = "ascii"
+    spec["1"]["data_enc"] = "ascii"
+    spec["65"]["data_enc"] = bitmap_enc
 
-    field_lenght = [0, 1, 2, 3, 4]
-    data_encoding = ["b", "ascii", "cp500"]
-    length_encoding = ["b", "bcd", "ascii", "cp500"]
+    primary_fields = [2, 3, 4, 12, 28, 32, 39, 41, 42, 50, 53, 62]
+    secondary_fields = [66, 67, 68, 76, 92, 96, 103, 105, 106, 114, 117, 126]
+    allFields = set(expected_fields + primary_fields + secondary_fields)
 
-    bm = set()
-    for i in range(2, 65):
-        bm.add(i)
-        for l in field_lenght:
-            for data_e in data_encoding:
-                for len_e in length_encoding:
-                    s = bytearray(b"0210")
-                    s += util_set2bitmap(bm)
-                    s += util_set2field_data(bm, spec, data_e, len_e, l)
+    s = bytearray(b"0210")
+    s += b"F010001102C04804"  # Primary: DE1 + primary test fields
+    s += b"F010001102C04804"  # DE1: secondary with DE65 on + secondary fields
+    s += util_generate_field_data(set(primary_fields), spec)
+    s += bitmap_data  # DE65: tertiary
+    s += util_generate_field_data(set(secondary_fields), spec)
+    s += util_generate_field_data(expected_fields, spec)
 
-                    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
+    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
+    assert doc_enc.keys() ^ set([str(f) for f in allFields]) == set(
+        ["t", "p", "1", "65"]
+    )
+    assert doc_dec.keys() ^ set([str(f) for f in allFields]) == set(
+        ["t", "p", "1", "65"]
+    )
 
-                    assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
-                    assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
 
-                    for f in [k for k in doc_dec.keys() if k.isnumeric()]:
-                        if f == "1":
-                            continue
-                        assert doc_dec[f] == "{0:04}".format(int(f))
+# fmt: off
+@pytest.mark.parametrize(
+    ["bitmap_data", "bitmap_enc", "expected_error"],
+    [
+        # Secondary bitmap does not enable any field - extra data present
+        (b"0000000000000000extra", "ascii", "Extra data after last field: field 65 pos 52"),
+        (b"incorrecthexdata", "ascii", "Failed to decode field, non-hex data: field 65 pos 36"),
+        # Non-ascii data
+        (b"\xff000000000000000", "ascii", "Failed to decode field, invalid data: field 65 pos 36"),
+        (b"0000000000000000", "invalid_encoding", "Failed to decode field, unknown encoding specified: field 65 pos 36"),
+        # Partial data
+        (b"0000", "ascii", "Field data is 4 bytes, expecting 16: field 65 pos 36"),
+        (b"", "ascii", "Field data is 0 bytes, expecting 16: field 65 pos 36"),
+    ]
+)
+# fmt: on
+def test_tertiary_bitmap_decoding_negative(
+    bitmap_data: bytes,
+    bitmap_enc: str,
+    expected_error: str,
+) -> None:
+    spec = copy.deepcopy(iso8583.specs.default_ascii)
+    spec["t"]["data_enc"] = "ascii"
+    spec["p"]["data_enc"] = "ascii"
+    spec["1"]["data_enc"] = "ascii"
+    spec["65"]["data_enc"] = bitmap_enc
 
-    bm = set()
-    for i in range(65, 129):
-        bm.add(i)
-        for l in field_lenght:
-            for data_e in data_encoding:
-                for len_e in length_encoding:
-                    s = bytearray(b"0210")
-                    s += util_set2bitmap(bm)
-                    s += util_set2field_data(bm, spec, data_e, len_e, l)
-
-                    doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-
-                    assert doc_enc.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
-                    assert doc_dec.keys() ^ set([str(f) for f in bm]) == set(["t", "p"])
-
-                    for f in [k for k in doc_dec.keys() if k.isnumeric()]:
-                        if f == "1":
-                            continue
-                        assert doc_dec[f] == "{0:04}".format(int(f))
+    s = bytearray(b"0210")
+    s += b"8000000000000000"  # primary with DE1 on
+    s += b"8000000000000000"  # secondary with DE65 on
+    s += bitmap_data
+    with pytest.raises(iso8583.DecodeError) as e:
+        iso8583.decode(s, spec=spec)
+    assert e.value.args[0] == expected_error
 
 
 # fmt: off
