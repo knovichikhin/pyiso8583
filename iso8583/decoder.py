@@ -115,38 +115,30 @@ def decode(
     idx = _decode_type(s, doc_dec, doc_enc, idx, spec)
     idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "p", spec, primary_fields)
 
-    # Parse secondary bitmap if present
-    if 1 in primary_fields:
-        idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "1", spec, secondary_fields)
-
-    # `field_key` can be used to throw an exception after the loop.
+    # `field` can be used to throw an exception after the loop.
     # So, create it here in case the `fields` set is empty
     # and never enters the loop to create the variable.
-    # Set `field_key` to the last mandatory one: primary bitmap.
-    field_key = "p"
+    # Set `field` to the last mandatory one: primary bitmap.
+    field = "p"
 
-    for field_key in [str(i) for i in sorted(primary_fields)]:
-        # Secondary bitmap is already decoded
-        if field_key == "1":
-            continue
-        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec[field_key])
+    for field in [str(i) for i in sorted(primary_fields)]:
+        if field == "1":
+            idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "1", spec, secondary_fields)
+        else:
+            idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
 
-    # Parse tertiary bitmap if present
-    if 65 in secondary_fields:
-        idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "65", spec, tertiary_fields)
+    for field in [str(i) for i in sorted(secondary_fields)]:
+        if field == "65":
+            idx = _decode_bitmap(s, doc_dec, doc_enc, idx, "65", spec, tertiary_fields)
+        else:
+            idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
 
-    for field_key in [str(i) for i in sorted(secondary_fields)]:
-        # Tertiary bitmap is already decoded
-        if field_key == "65":
-            continue
-        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec[field_key])
-
-    for field_key in [str(i) for i in sorted(tertiary_fields)]:
-        idx = _decode_field(s, doc_dec, doc_enc, idx, field_key, spec[field_key])
+    for field in [str(i) for i in sorted(tertiary_fields)]:
+        idx = _decode_field(s, doc_dec, doc_enc, idx, field, spec[field])
 
     if idx != len(s):
         raise DecodeError(
-            "Extra data after last field", s, doc_dec, doc_enc, idx, field_key
+            "Extra data after last field", s, doc_dec, doc_enc, idx, field
         )
 
     return doc_dec, doc_enc
