@@ -130,25 +130,31 @@ def encode(doc_dec: DecodedDict, spec: SpecDict) -> Tuple[bytearray, EncodedDict
         fields.intersection(range(1, 65)),
     )
 
+    if 1 in fields:
+        # Primary bitmap is always present, even if no secondary fields are present
+        s += _encode_bitmap(
+            doc_dec,
+            doc_enc,
+            "1",
+            64,
+            spec["1"],
+            secondary_fields,
+        )
+    
+    if 65 in fields:
+        # Tertiary bitmap is always present, even if no tertiary fields are present
+        s += _encode_bitmap(
+            doc_dec,
+            doc_enc,
+            "65",
+            128,
+            spec["65"],
+            tertiary_fields,
+        )
+
     for field_key in [str(i) for i in sorted(fields)]:
-        if field_key == "1":
-            s += _encode_bitmap(
-                doc_dec,
-                doc_enc,
-                "1",
-                64,
-                spec[field_key],
-                secondary_fields,
-            )
-        elif field_key == "65":
-            s += _encode_bitmap(
-                doc_dec,
-                doc_enc,
-                "65",
-                128,
-                spec[field_key],
-                tertiary_fields,
-            )
+        if field_key in ["1", "65"]:
+            pass
         else:
             s += _encode_field(doc_dec, doc_enc, field_key, spec[field_key])
 
