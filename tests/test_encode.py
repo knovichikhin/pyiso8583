@@ -391,6 +391,25 @@ def test_type_encoding_negative(
             b"\x80\x00\x00\x00\x00\x00\x00\x00", "8000000000000000",
             b"\x0A\x00\x00\x00\x00\x00\x00\x00", "0A00000000000000",
         ),
+        # Primary, tertiary bitmaps
+        (
+            "ascii", "ascii", "ascii", [2, 130],
+            b"C000000000000000", "C000000000000000",
+            b"8000000000000000", "8000000000000000",
+            b"4000000000000000", "4000000000000000",
+        ),
+        (
+            "cp500", "cp500", "cp500", [2, 130],
+            b"\xC3\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "C000000000000000",
+            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "8000000000000000",
+            b"\xf4\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0", "4000000000000000",
+        ),
+        (
+            "b", "b", "b", [2, 130],
+            b"\xC0\x00\x00\x00\x00\x00\x00\x00", "C000000000000000",
+            b"\x80\x00\x00\x00\x00\x00\x00\x00", "8000000000000000",
+            b"\x40\x00\x00\x00\x00\x00\x00\x00", "4000000000000000",
+        ),
     ]
 )
 # fmt: on
@@ -419,11 +438,14 @@ def test_bitmap_encoding(
     if expected_tertiary_enc_data is not None:
         enabled_fields.append(65)
 
+    if 1 in enabled_fields:
+        expected_message_payload += expected_secondary_enc_data  # type: ignore
+    if 65 in enabled_fields:
+        expected_message_payload += expected_tertiary_enc_data  # type: ignore
+
     for enabled_field in [str(f) for f in sorted(enabled_fields)]:
-        if enabled_field == "1":
-            expected_message_payload += expected_secondary_enc_data  # type: ignore
-        elif enabled_field == "65":
-            expected_message_payload += expected_tertiary_enc_data  # type: ignore
+        if enabled_field in ["1", "65"]:
+            pass
         else:
             spec[enabled_field] = {
                 "len_type": 3,
