@@ -455,9 +455,21 @@ def test_secondary_bitmap_decoding_negative(
 @pytest.mark.parametrize(
     ["bitmap_enc", "bitmap_data", "expected_fields"],
     [
-        ("ascii", b"7010001102C04804", [130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]),
-        ("cp500", b"\xf7\xf0\xf1\xf0\xf0\xf0\xf1\xf1\xf0\xf2\xc3\xf0\xf4\xf8\xf0\xf4", [130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]),
-        ("b", b"\x70\x10\x00\x11\x02\xC0\x48\x04", [130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]),
+        (
+            "ascii",
+            b"80000000000000007010001102C04804",
+            [1, 130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]
+        ),
+        (
+            "cp500",
+            b"\xf8\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf7\xf0\xf1\xf0\xf0\xf0\xf1\xf1\xf0\xf2\xc3\xf0\xf4\xf8\xf0\xf4",
+            [1, 130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]
+        ),
+        (
+            "b",
+            b"\x80\x00\x00\x00\x00\x00\x00\x00\x70\x10\x00\x11\x02\xC0\x48\x04",
+            [1, 130, 131, 132, 140, 156, 160, 167, 169, 170, 178, 181, 190]
+        ),
     ]
 )
 # fmt: on
@@ -466,60 +478,45 @@ def test_tertiary_bitmap_decoding(
     bitmap_data: bytes,
     expected_fields: typing.List[int],
 ) -> None:
-    """This test will validate bitmap decoding for field 1-128"""
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
-    spec["1"]["data_enc"] = "ascii"
-    spec["65"]["data_enc"] = bitmap_enc
-
-    primary_fields = [2, 3, 4, 12, 28, 32, 39, 41, 42, 50, 53, 62]
-    secondary_fields = [66, 67, 68, 76, 92, 96, 103, 105, 106, 114, 117, 126]
-    allFields = set(expected_fields + primary_fields + secondary_fields)
+    spec["1"]["data_enc"] = bitmap_enc
 
     s = bytearray(b"0210")
-    s += b"F010001102C04804"  # Primary: DE1 + primary test fields
-    s += b"F010001102C04804"  # DE1: secondary with DE65 on + secondary fields
-    s += util_generate_field_data(set(primary_fields), spec)
-    s += bitmap_data  # DE65: tertiary
-    s += util_generate_field_data(set(secondary_fields), spec)
+    s += b"8000000000000000"  # Primary: DE1 + primary test fields
+    s += bitmap_data
     s += util_generate_field_data(expected_fields, spec)
 
     doc_dec, doc_enc = iso8583.decode(s, spec=spec)
-    assert doc_enc.keys() ^ set([str(f) for f in allFields]) == set(
-        ["t", "p", "1", "65"]
-    )
-    assert doc_dec.keys() ^ set([str(f) for f in allFields]) == set(
-        ["t", "p", "1", "65"]
-    )
+    assert doc_enc.keys() ^ set([str(f) for f in expected_fields]) == set(["t", "p"])
+    assert doc_dec.keys() ^ set([str(f) for f in expected_fields]) == set(["t", "p"])
 
 
 # fmt: off
 @pytest.mark.parametrize(
-    ["bitmap_data", "bitmap_enc", "expected_error"],
+    ["bitmap_data", "expected_error"],
     [
         # Secondary bitmap does not enable any field - extra data present
-        (b"0000000000000000extra", "ascii", "Extra data after last field: field 65 pos 52"),
-        (b"incorrecthexdata", "ascii", "Failed to decode field, non-hex data: field 65 pos 36"),
+        (b"0000000000000000extra", "Extra data after last field: field 1 pos 52"),
+        (b"incorrecthexdata", "Failed to decode field, non-hex data: field 1 pos 36"),
         # Non-ascii data
-        (b"\xff000000000000000", "ascii", "Failed to decode field, invalid data: field 65 pos 36"),
-        (b"0000000000000000", "invalid_encoding", "Failed to decode field, unknown encoding specified: field 65 pos 36"),
+        (b"\xff000000000000000", "Failed to decode field, invalid data: field 1 pos 36"),
         # Partial data
-        (b"0000", "ascii", "Field data is 4 bytes, expecting 16: field 65 pos 36"),
-        (b"", "ascii", "Field data is 0 bytes, expecting 16: field 65 pos 36"),
+        (b"0000", "Field data is 20 bytes, expecting 32: field 1 pos 36"),
+        # Expected secondary bitmap to be extended but found no data
+        (b"", "Field data is 16 bytes, expecting 32: field 1 pos 36"),
     ]
 )
 # fmt: on
 def test_tertiary_bitmap_decoding_negative(
     bitmap_data: bytes,
-    bitmap_enc: str,
     expected_error: str,
 ) -> None:
     spec = copy.deepcopy(iso8583.specs.default_ascii)
     spec["t"]["data_enc"] = "ascii"
     spec["p"]["data_enc"] = "ascii"
     spec["1"]["data_enc"] = "ascii"
-    spec["65"]["data_enc"] = bitmap_enc
 
     s = bytearray(b"0210")
     s += b"8000000000000000"  # primary with DE1 on
