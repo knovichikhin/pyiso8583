@@ -1,9 +1,11 @@
-4.0.0 - 2025-08-10
+4.0.1 - 2025-08-28
 ------------------
-- Add support for tertiary bitmap located in field 65.
+- Add support for tertiary bitmap as an extension of secondary bitmap.
 - Migration from 3.x.x:
-   - This library previously ignored field 65.
-     It now processes it as a tertiary bitmap containing map for fields 129-192.
+   - This library previously processed field 65 as a regular field.
+     It now processes it as a tertiary bitmap indicator that's neither encoded nor decoded.
+     When this field is on in the secondary bitmap, it means that secondary bitmap is
+     extended to support fields 129-192.
      It's a breaking change for users who use field 65 for another purpose.
      If your spec did not re-purpose field 65 then it's safe to update to 4.x.x.
 

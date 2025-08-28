@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     setup(
         name="pyiso8583",
-        version="4.0.0",
+        version="4.0.1",
         author="Konstantin Novichikhin",
         author_email="konstantin.novichikhin@gmail.com",
         description="A serializer and deserializer of ISO8583 data.",
